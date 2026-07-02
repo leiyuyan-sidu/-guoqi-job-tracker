@@ -32,7 +32,7 @@
 
 - `SUPABASE_URL`：同上的 Project URL
 - `SUPABASE_SERVICE_KEY`：上一步的 service_role key（这个有完整数据库权限，只能放在 Secrets 里，绝对不能出现在代码或网页里）
-- `DEEPSEEK_API_KEY`：你的 DeepSeek API key，去 [platform.deepseek.com](https://platform.deepseek.com) 申请，用于给规则判断不出来的岗位做语义匹配
+- `ANTHROPIC_API_KEY`：你的 Anthropic API key，去 [console.anthropic.com](https://console.anthropic.com) 申请，用于给规则判断不出来的岗位做语义匹配（用的是 Haiku 模型，成本很低）。注意：DeepSeek 官方 API 从 GitHub Actions（海外机房）访问经常连接超时，所以这里固定用 Anthropic
 
 ### 4. 开启 GitHub Pages
 
@@ -49,7 +49,7 @@ cd scraper
 pip install -r requirements.txt
 set SUPABASE_URL=...
 set SUPABASE_SERVICE_KEY=...
-set DEEPSEEK_API_KEY=...
+set ANTHROPIC_API_KEY=...
 python main.py
 ```
 
