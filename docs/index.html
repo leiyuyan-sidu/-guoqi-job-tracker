@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>国央企校招信息看板</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>国央企校招信息看板</h1>
+      <p class="updated-hint" id="updated-hint"></p>
+    </div>
+    <div class="stats">
+      <div class="stat-card">
+        <div class="num" id="stat-total">-</div>
+        <div class="label">可报名岗位</div>
+      </div>
+      <div class="stat-card muted">
+        <div class="num" id="stat-applied">-</div>
+        <div class="label">已投递</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="auth-bar" id="auth-bar"></div>
+
+  <div class="filters">
+    <select id="filter-source"><option value="">全部来源</option></select>
+    <select id="filter-status">
+      <option value="">全部状态</option>
+      <option value="pending">未处理</option>
+      <option value="applied">已投递</option>
+      <option value="skipped">不投递</option>
+    </select>
+    <input type="text" id="filter-search" placeholder="搜索公司或岗位名称">
+  </div>
+
+  <div class="job-list" id="job-list">
+    <div class="loading-state">加载中…</div>
+  </div>
+</div>
+
+<dialog id="login-dialog">
+  <h3>登录</h3>
+  <form id="login-form">
+    <input type="email" id="login-email" placeholder="邮箱" required>
+    <input type="password" id="login-password" placeholder="密码" required>
+    <p class="dialog-error" id="login-error"></p>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" id="login-cancel">取消</button>
+      <button type="submit" class="primary">登录</button>
+    </div>
+  </form>
+</dialog>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>

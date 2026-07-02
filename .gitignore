@@ -1,0 +1,9 @@
+.env
+.claude/
+__pycache__/
+*.pyc
+.venv/
+venv/
+*.log
+report*.txt
+dump_*.html
