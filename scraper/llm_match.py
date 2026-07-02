@@ -1,19 +1,11 @@
 import json
 import os
 
-import anthropic
+import requests
 
 from config import PROFILE
 
-_client = None
-
-
-def _get_client():
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"])
-    return _client
-
+API_URL = "https://api.deepseek.com/chat/completions"
 
 PROMPT_TEMPLATE = """你在帮一名应届毕业生判断能否报名某个国企/央企校园招聘岗位。
 
@@ -44,14 +36,25 @@ def classify(major_cn_list, contents):
         major_cn="、".join(major_cn_list or []) or "（未注明）",
         contents=(contents or "")[:800],
     )
-    resp = _get_client().messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=200,
-        messages=[{"role": "user", "content": prompt}],
+    resp = requests.post(
+        API_URL,
+        headers={
+            "Authorization": f"Bearer {os.environ['DEEPSEEK_API_KEY']}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "model": "deepseek-chat",
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 200,
+            "temperature": 0,
+            "response_format": {"type": "json_object"},
+        },
+        timeout=30,
     )
-    text = resp.content[0].text.strip()
+    resp.raise_for_status()
+    text = resp.json()["choices"][0]["message"]["content"].strip()
     try:
         data = json.loads(text)
         return bool(data.get("eligible")), str(data.get("reason", "")).strip()
-    except (json.JSONDecodeError, IndexError, KeyError):
+    except (json.JSONDecodeError, KeyError):
         return False, "模型判断解析失败，默认不符合，需人工复核"
