@@ -27,14 +27,13 @@
 
   <div class="auth-bar" id="auth-bar"></div>
 
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-pending" data-tab="pending">待处理 <span id="tab-pending-count"></span></button>
+    <button class="tab-btn" id="tab-resolved" data-tab="resolved">已处理记录 <span id="tab-resolved-count"></span></button>
+  </div>
+
   <div class="filters">
     <select id="filter-source"><option value="">全部来源</option></select>
-    <select id="filter-status">
-      <option value="">全部状态</option>
-      <option value="pending">未处理</option>
-      <option value="applied">已投递</option>
-      <option value="skipped">不投递</option>
-    </select>
     <input type="text" id="filter-search" placeholder="搜索公司或岗位名称">
   </div>
 
@@ -52,6 +51,17 @@
     <div class="dialog-actions">
       <button type="button" class="secondary" id="login-cancel">取消</button>
       <button type="submit" class="primary">登录</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="undecided-dialog">
+  <h3>标记待定</h3>
+  <form id="undecided-form">
+    <textarea id="undecided-reason" rows="3" placeholder="待定原因（选填），比如：还没想好、等其他公司结果"></textarea>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" id="undecided-cancel">取消</button>
+      <button type="submit" class="primary">确认</button>
     </div>
   </form>
 </dialog>

@@ -16,7 +16,8 @@ create table if not exists jobs (
   posted_at timestamptz,
   deadline timestamptz,
   url text not null,
-  status text not null default 'pending' check (status in ('pending', 'applied', 'skipped')),
+  status text not null default 'pending' check (status in ('pending', 'applied', 'skipped', 'undecided')),
+  status_note text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

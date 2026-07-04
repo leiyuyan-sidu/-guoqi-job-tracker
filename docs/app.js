@@ -15,14 +15,28 @@ const statAppliedEl = document.getElementById("stat-applied");
 const updatedHintEl = document.getElementById("updated-hint");
 const authBarEl = document.getElementById("auth-bar");
 const sourceFilterEl = document.getElementById("filter-source");
-const statusFilterEl = document.getElementById("filter-status");
 const searchEl = document.getElementById("filter-search");
 const loginDialog = document.getElementById("login-dialog");
 const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
+const undecidedDialog = document.getElementById("undecided-dialog");
+const undecidedForm = document.getElementById("undecided-form");
+const undecidedReasonEl = document.getElementById("undecided-reason");
+const tabPendingBtn = document.getElementById("tab-pending");
+const tabResolvedBtn = document.getElementById("tab-resolved");
+const tabPendingCountEl = document.getElementById("tab-pending-count");
+const tabResolvedCountEl = document.getElementById("tab-resolved-count");
 
 let session = null;
 let allJobs = [];
+let currentTab = "pending";
+let undecidedTargetJob = null;
+
+const STATUS_LABELS = {
+  applied: "已投递",
+  skipped: "不投递",
+  undecided: "待定",
+};
 
 function fmtDate(d) {
   if (!d) return "";
@@ -34,6 +48,17 @@ function isToday(d) {
   const dt = new Date(d);
   const now = new Date();
   return dt.toDateString() === now.toDateString();
+}
+
+function fmtDateTime(d) {
+  if (!d) return "";
+  return new Date(d).toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 async function refreshAuthUI() {
@@ -106,28 +131,39 @@ function updateStats() {
   updatedHintEl.textContent = latest
     ? `更新于 ${new Date(latest).toLocaleString("zh-CN")} · 共 ${allJobs.length} 条可报名岗位`
     : "";
+
+  const pendingCount = allJobs.filter((j) => j.status === "pending").length;
+  const resolvedCount = allJobs.length - pendingCount;
+  tabPendingCountEl.textContent = `(${pendingCount})`;
+  tabResolvedCountEl.textContent = `(${resolvedCount})`;
 }
 
 function renderJobs() {
   const sourceVal = sourceFilterEl.value;
-  const statusVal = statusFilterEl.value;
   const q = searchEl.value.trim().toLowerCase();
 
   const filtered = allJobs.filter((j) => {
     if (sourceVal && j.source !== sourceVal) return false;
-    if (statusVal && j.status !== statusVal) return false;
     if (q && !(j.company.toLowerCase().includes(q) || j.title.toLowerCase().includes(q))) return false;
-    return true;
+    if (currentTab === "pending") return j.status === "pending";
+    return j.status !== "pending";
   });
 
   if (filtered.length === 0) {
-    jobListEl.innerHTML = '<div class="empty-state">没有符合条件的岗位。</div>';
+    jobListEl.innerHTML =
+      currentTab === "pending"
+        ? '<div class="empty-state">没有待处理的可报名岗位。</div>'
+        : '<div class="empty-state">还没有已处理的岗位。</div>';
     return;
+  }
+
+  if (currentTab === "resolved") {
+    filtered.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
   }
 
   jobListEl.innerHTML = "";
   for (const job of filtered) {
-    jobListEl.appendChild(renderCard(job));
+    jobListEl.appendChild(currentTab === "pending" ? renderCard(job) : renderResolvedCard(job));
   }
 }
 
@@ -135,10 +171,6 @@ function renderCard(job) {
   const card = document.createElement("div");
   const notInterested = !!job.interest_tag;
   card.className = "job-card" + (notInterested ? " not-interested" : "");
-
-  const statusLabel =
-    job.status === "applied" ? "已投递" : job.status === "skipped" ? "已标记不投递" : "";
-  const statusClass = job.status === "applied" ? "applied" : job.status === "skipped" ? "skipped" : "";
 
   card.innerHTML = `
     <div class="job-card-top">
@@ -154,32 +186,84 @@ function renderCard(job) {
         ${job.eligible_reason ? `<p class="reason">${escapeHtml(job.eligible_reason)}</p>` : ""}
       </div>
       <div class="job-actions">
-        <button class="icon-btn check ${job.status === "applied" ? "active" : ""}" title="标记已投递" ${session ? "" : "disabled"}>✓</button>
-        <button class="icon-btn cross ${job.status === "skipped" ? "active" : ""}" title="标记不投递" ${session ? "" : "disabled"}>✕</button>
+        <button class="icon-btn check" title="标记已投递" ${session ? "" : "disabled"}>✓</button>
+        <button class="icon-btn undecided" title="标记待定" ${session ? "" : "disabled"}>?</button>
+        <button class="icon-btn cross" title="标记不投递" ${session ? "" : "disabled"}>✕</button>
       </div>
     </div>
     <div class="job-card-bottom">
       <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
-      <span class="status-hint ${statusClass}">${statusLabel || (job.deadline ? "截止 " + fmtDate(job.deadline) : "")}</span>
+      <span class="status-hint">${job.deadline ? "截止 " + fmtDate(job.deadline) : ""}</span>
     </div>
   `;
 
-  const checkBtn = card.querySelector(".icon-btn.check");
-  const crossBtn = card.querySelector(".icon-btn.cross");
-  checkBtn.addEventListener("click", () => setStatus(job, job.status === "applied" ? "pending" : "applied"));
-  crossBtn.addEventListener("click", () => setStatus(job, job.status === "skipped" ? "pending" : "skipped"));
+  card.querySelector(".icon-btn.check").addEventListener("click", () => setStatus(job, "applied"));
+  card.querySelector(".icon-btn.cross").addEventListener("click", () => setStatus(job, "skipped"));
+  card.querySelector(".icon-btn.undecided").addEventListener("click", () => openUndecidedDialog(job));
 
   return card;
 }
 
-async function setStatus(job, newStatus) {
+function renderResolvedCard(job) {
+  const card = document.createElement("div");
+  card.className = "job-card resolved";
+
+  card.innerHTML = `
+    <div class="job-card-top">
+      <div class="job-card-main">
+        <div class="job-card-title-row">
+          <span class="company">${escapeHtml(job.company)}</span>
+          <span class="badge status-${job.status}">${STATUS_LABELS[job.status] || job.status}</span>
+        </div>
+        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
+        ${job.status_note ? `<p class="reason">原因：${escapeHtml(job.status_note)}</p>` : ""}
+      </div>
+      <div class="job-actions">
+        <button class="icon-btn revert" title="撤销，移回待处理" ${session ? "" : "disabled"}>↺</button>
+      </div>
+    </div>
+    <div class="job-card-bottom">
+      <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
+      <span class="status-hint">处理于 ${fmtDateTime(job.updated_at)}</span>
+    </div>
+  `;
+
+  card.querySelector(".icon-btn.revert").addEventListener("click", () => setStatus(job, "pending", null));
+
+  return card;
+}
+
+function openUndecidedDialog(job) {
+  undecidedTargetJob = job;
+  undecidedReasonEl.value = job.status_note || "";
+  undecidedDialog.showModal();
+}
+
+undecidedForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const reason = undecidedReasonEl.value.trim();
+  undecidedDialog.close();
+  if (undecidedTargetJob) {
+    setStatus(undecidedTargetJob, "undecided", reason || null);
+    undecidedTargetJob = null;
+  }
+});
+
+document.getElementById("undecided-cancel").addEventListener("click", () => {
+  undecidedTargetJob = null;
+  undecidedDialog.close();
+});
+
+async function setStatus(job, newStatus, note) {
   if (!session) return;
-  const { error } = await supabase.from("jobs").update({ status: newStatus }).eq("id", job.id);
+  const payload = { status: newStatus, status_note: newStatus === "undecided" ? note : null };
+  const { error } = await supabase.from("jobs").update(payload).eq("id", job.id);
   if (error) {
     alert("更新失败：" + error.message);
     return;
   }
   job.status = newStatus;
+  job.status_note = payload.status_note;
   updateStats();
   renderJobs();
 }
@@ -191,8 +275,16 @@ function escapeHtml(str) {
 }
 
 sourceFilterEl.addEventListener("change", renderJobs);
-statusFilterEl.addEventListener("change", renderJobs);
 searchEl.addEventListener("input", renderJobs);
+
+for (const btn of [tabPendingBtn, tabResolvedBtn]) {
+  btn.addEventListener("click", () => {
+    currentTab = btn.dataset.tab;
+    tabPendingBtn.classList.toggle("active", currentTab === "pending");
+    tabResolvedBtn.classList.toggle("active", currentTab === "resolved");
+    renderJobs();
+  });
+}
 
 refreshAuthUI();
 loadJobs();
