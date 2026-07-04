@@ -15,6 +15,7 @@ const statAppliedEl = document.getElementById("stat-applied");
 const updatedHintEl = document.getElementById("updated-hint");
 const authBarEl = document.getElementById("auth-bar");
 const sourceFilterEl = document.getElementById("filter-source");
+const dateFilterEl = document.getElementById("filter-date");
 const searchEl = document.getElementById("filter-search");
 const loginDialog = document.getElementById("login-dialog");
 const loginForm = document.getElementById("login-form");
@@ -63,6 +64,17 @@ const RESOLVED_GROUPS = [
   { key: "skipped", label: "不投递" },
   { key: "undecided", label: "待定" },
 ];
+
+const SKIP_REASON_CATEGORIES = ["工资太低", "地区不合适", "工作内容不喜欢"];
+
+function toLocalDateStr(d) {
+  if (!d) return "";
+  const dt = new Date(d);
+  const y = dt.getFullYear();
+  const m = String(dt.getMonth() + 1).padStart(2, "0");
+  const day = String(dt.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 function deadlineBucket(deadline) {
   if (!deadline) return "none";
@@ -223,11 +235,16 @@ function renderPagination(totalPages) {
 
 function renderJobs() {
   const sourceVal = sourceFilterEl.value;
+  const dateVal = dateFilterEl.value;
   const q = searchEl.value.trim().toLowerCase();
 
   const baseFiltered = allJobs.filter((j) => {
     if (sourceVal && j.source !== sourceVal) return false;
     if (q && !(j.company.toLowerCase().includes(q) || j.title.toLowerCase().includes(q))) return false;
+    if (dateVal) {
+      const relevantDate = currentTab === "pending" ? j.created_at : j.updated_at;
+      if (toLocalDateStr(relevantDate) !== dateVal) return false;
+    }
     if (currentTab === "pending") return j.status === "pending";
     return j.status !== "pending";
   });
@@ -251,6 +268,11 @@ function renderJobs() {
     return;
   }
 
+  if (currentTab === "resolved" && bucketKey === "skipped") {
+    renderSkippedByReason(finalFiltered);
+    return;
+  }
+
   const totalPages = Math.max(1, Math.ceil(finalFiltered.length / PAGE_SIZE));
   if (currentPage > totalPages) currentPage = totalPages;
   const start = (currentPage - 1) * PAGE_SIZE;
@@ -262,6 +284,32 @@ function renderJobs() {
   }
 
   renderPagination(totalPages);
+}
+
+function renderSkippedByReason(jobs) {
+  jobListEl.innerHTML = "";
+  paginationEl.innerHTML = "";
+
+  const boxes = [...SKIP_REASON_CATEGORIES, "其他原因"];
+  for (const reason of boxes) {
+    const group = jobs.filter((j) =>
+      reason === "其他原因" ? !SKIP_REASON_CATEGORIES.includes(j.status_note) : j.status_note === reason
+    );
+
+    const box = document.createElement("div");
+    box.className = "reason-box";
+    box.innerHTML = `<div class="reason-box-title">${escapeHtml(reason)} <span class="count">${group.length}</span></div>`;
+
+    const body = document.createElement("div");
+    body.className = "reason-box-body";
+    if (group.length === 0) {
+      body.innerHTML = '<div class="empty-state small">暂无</div>';
+    } else {
+      for (const job of group) body.appendChild(renderResolvedCard(job));
+    }
+    box.appendChild(body);
+    jobListEl.appendChild(box);
+  }
 }
 
 function renderCard(job) {
@@ -402,6 +450,10 @@ function escapeHtml(str) {
 }
 
 sourceFilterEl.addEventListener("change", () => {
+  currentPage = 1;
+  renderJobs();
+});
+dateFilterEl.addEventListener("change", () => {
   currentPage = 1;
   renderJobs();
 });
