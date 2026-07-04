@@ -2,17 +2,22 @@ import sys
 
 import llm_match
 from db import get_client, upsert_jobs
-from match import check_disliked, rule_based_eligible
+from match import check_disliked, is_blue_collar, rule_based_eligible
 from sources import guopin
 
 
 def build_row(job):
     major_cn = job.get("major_cn") or []
     contents = job.get("contents") or ""
+    title = job.get("job_name")
+    education = job.get("education_cn")
 
-    eligible, reason = rule_based_eligible(major_cn, contents)
-    if eligible is None:
-        eligible, reason = llm_match.classify(major_cn, contents)
+    if is_blue_collar(title, education):
+        eligible, reason = False, f"学历要求「{education}」或岗位类型为技能/蓝领岗，非硕士管理类岗位，直接排除"
+    else:
+        eligible, reason = rule_based_eligible(major_cn, contents)
+        if eligible is None:
+            eligible, reason = llm_match.classify(major_cn, contents)
 
     interest_tag = check_disliked(
         job.get("job_name"), job.get("category_cn"), job.get("department_cn"), contents

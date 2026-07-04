@@ -1,4 +1,17 @@
-from config import ELIGIBLE_MAJOR_KEYWORDS, DISLIKED_KEYWORDS
+from config import (
+    ELIGIBLE_MAJOR_KEYWORDS,
+    DISLIKED_KEYWORDS,
+    LOW_EDUCATION_LEVELS,
+    EXCLUDED_TITLE_KEYWORDS,
+)
+
+
+def is_blue_collar(title, education):
+    """学历要求过低或岗位名称命中蓝领/技能岗关键词，直接判定不符合，不用再看专业要求。"""
+    if education and education.strip() in LOW_EDUCATION_LEVELS:
+        return True
+    title = title or ""
+    return any(kw in title for kw in EXCLUDED_TITLE_KEYWORDS)
 
 
 def rule_based_eligible(major_cn_list, contents):
