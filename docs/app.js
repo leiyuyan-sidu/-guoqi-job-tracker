@@ -22,7 +22,7 @@ const loginForm = document.getElementById("login-form");
 const loginError = document.getElementById("login-error");
 const undecidedDialog = document.getElementById("undecided-dialog");
 const undecidedForm = document.getElementById("undecided-form");
-const undecidedReasonEl = document.getElementById("undecided-reason");
+const undecidedOtherReasonEl = document.getElementById("undecided-other-reason");
 const skipDialog = document.getElementById("skip-dialog");
 const skipForm = document.getElementById("skip-form");
 const skipOtherReasonEl = document.getElementById("skip-other-reason");
@@ -66,6 +66,7 @@ const RESOLVED_GROUPS = [
 ];
 
 const SKIP_REASON_CATEGORIES = ["工资太低", "地区不合适", "工作内容不喜欢"];
+const UNDECIDED_REASON_CATEGORIES = ["工资一般", "地区一般", "专业不太符合"];
 
 function toLocalDateStr(d) {
   if (!d) return "";
@@ -380,16 +381,33 @@ function renderResolvedCard(job) {
 
 function openUndecidedDialog(job) {
   undecidedTargetJob = job;
-  undecidedReasonEl.value = job.status_note || "";
+  undecidedForm.reset();
+  undecidedOtherReasonEl.classList.add("hidden");
+  const note = job.status_note;
+  if (note && UNDECIDED_REASON_CATEGORIES.includes(note)) {
+    undecidedForm.querySelector(`input[name="undecided-reason"][value="${note}"]`).checked = true;
+  } else if (note) {
+    undecidedForm.querySelector('input[name="undecided-reason"][value="其他"]').checked = true;
+    undecidedOtherReasonEl.value = note;
+    undecidedOtherReasonEl.classList.remove("hidden");
+  }
   undecidedDialog.showModal();
+}
+
+for (const radio of undecidedForm.querySelectorAll('input[name="undecided-reason"]')) {
+  radio.addEventListener("change", () => {
+    undecidedOtherReasonEl.classList.toggle("hidden", radio.value !== "其他" || !radio.checked);
+  });
 }
 
 undecidedForm.addEventListener("submit", (e) => {
   e.preventDefault();
-  const reason = undecidedReasonEl.value.trim();
+  const selected = undecidedForm.querySelector('input[name="undecided-reason"]:checked');
+  let reason = selected ? selected.value : null;
+  if (reason === "其他") reason = undecidedOtherReasonEl.value.trim() || "其他";
   undecidedDialog.close();
   if (undecidedTargetJob) {
-    setStatus(undecidedTargetJob, "undecided", reason || null);
+    setStatus(undecidedTargetJob, "undecided", reason);
     undecidedTargetJob = null;
   }
 });

@@ -63,7 +63,13 @@
 <dialog id="undecided-dialog">
   <h3>标记待定</h3>
   <form id="undecided-form">
-    <textarea id="undecided-reason" rows="3" placeholder="待定原因（选填），比如：还没想好、等其他公司结果"></textarea>
+    <div class="radio-group">
+      <label><input type="radio" name="undecided-reason" value="工资一般"> 工资一般</label>
+      <label><input type="radio" name="undecided-reason" value="地区一般"> 地区一般</label>
+      <label><input type="radio" name="undecided-reason" value="专业不太符合"> 专业不太符合</label>
+      <label><input type="radio" name="undecided-reason" value="其他"> 其他</label>
+    </div>
+    <textarea id="undecided-other-reason" rows="2" placeholder="请填写具体原因" class="hidden"></textarea>
     <div class="dialog-actions">
       <button type="button" class="secondary" id="undecided-cancel">取消</button>
       <button type="submit" class="primary">确认</button>
