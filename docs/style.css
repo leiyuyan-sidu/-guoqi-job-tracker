@@ -163,6 +163,32 @@ header.top h1 {
   gap: 10px;
 }
 
+.section-header {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin: 14px 0 -2px;
+  padding-left: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.section-header:first-child {
+  margin-top: 0;
+}
+
+.section-header .count {
+  background: var(--accent-bg);
+  color: var(--accent-dark);
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .job-card {
   background: var(--surface);
   border: 1px solid var(--border);

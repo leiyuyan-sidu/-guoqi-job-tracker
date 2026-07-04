@@ -38,6 +38,31 @@ const STATUS_LABELS = {
   undecided: "待定",
 };
 
+const DEADLINE_BUCKETS = [
+  { key: "expired", label: "已截止" },
+  { key: "week1", label: "一周内截止" },
+  { key: "week2", label: "两周内截止" },
+  { key: "month1", label: "一个月内截止" },
+  { key: "monthplus", label: "一个月以上" },
+  { key: "none", label: "未注明截止日期" },
+];
+
+const RESOLVED_GROUPS = [
+  { key: "applied", label: "已投递" },
+  { key: "skipped", label: "不投递" },
+  { key: "undecided", label: "其他原因" },
+];
+
+function deadlineBucket(deadline) {
+  if (!deadline) return "none";
+  const diffDays = (new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24);
+  if (diffDays < 0) return "expired";
+  if (diffDays <= 7) return "week1";
+  if (diffDays <= 14) return "week2";
+  if (diffDays <= 30) return "month1";
+  return "monthplus";
+}
+
 function fmtDate(d) {
   if (!d) return "";
   return new Date(d).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
@@ -157,14 +182,31 @@ function renderJobs() {
     return;
   }
 
-  if (currentTab === "resolved") {
-    filtered.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
-  }
-
   jobListEl.innerHTML = "";
-  for (const job of filtered) {
-    jobListEl.appendChild(currentTab === "pending" ? renderCard(job) : renderResolvedCard(job));
+
+  if (currentTab === "pending") {
+    for (const bucket of DEADLINE_BUCKETS) {
+      const group = filtered.filter((j) => deadlineBucket(j.deadline) === bucket.key);
+      if (group.length === 0) continue;
+      jobListEl.appendChild(renderSectionHeader(bucket.label, group.length));
+      for (const job of group) jobListEl.appendChild(renderCard(job));
+    }
+  } else {
+    filtered.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+    for (const groupDef of RESOLVED_GROUPS) {
+      const group = filtered.filter((j) => j.status === groupDef.key);
+      if (group.length === 0) continue;
+      jobListEl.appendChild(renderSectionHeader(groupDef.label, group.length));
+      for (const job of group) jobListEl.appendChild(renderResolvedCard(job));
+    }
   }
+}
+
+function renderSectionHeader(label, count) {
+  const el = document.createElement("div");
+  el.className = "section-header";
+  el.innerHTML = `${escapeHtml(label)} <span class="count">${count}</span>`;
+  return el;
 }
 
 function renderCard(job) {
