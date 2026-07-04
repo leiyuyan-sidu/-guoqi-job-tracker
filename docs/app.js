@@ -270,7 +270,11 @@ function renderJobs() {
   }
 
   if (currentTab === "resolved" && bucketKey === "skipped") {
-    renderSkippedByReason(finalFiltered);
+    renderReasonBoxes(finalFiltered, SKIP_REASON_CATEGORIES);
+    return;
+  }
+  if (currentTab === "resolved" && bucketKey === "undecided") {
+    renderReasonBoxes(finalFiltered, UNDECIDED_REASON_CATEGORIES);
     return;
   }
 
@@ -287,14 +291,14 @@ function renderJobs() {
   renderPagination(totalPages);
 }
 
-function renderSkippedByReason(jobs) {
+function renderReasonBoxes(jobs, categories) {
   jobListEl.innerHTML = "";
   paginationEl.innerHTML = "";
 
-  const boxes = [...SKIP_REASON_CATEGORIES, "其他原因"];
+  const boxes = [...categories, "其他原因"];
   for (const reason of boxes) {
     const group = jobs.filter((j) =>
-      reason === "其他原因" ? !SKIP_REASON_CATEGORIES.includes(j.status_note) : j.status_note === reason
+      reason === "其他原因" ? !categories.includes(j.status_note) : j.status_note === reason
     );
 
     const box = document.createElement("div");
