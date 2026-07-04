@@ -26,11 +26,18 @@ const tabPendingBtn = document.getElementById("tab-pending");
 const tabResolvedBtn = document.getElementById("tab-resolved");
 const tabPendingCountEl = document.getElementById("tab-pending-count");
 const tabResolvedCountEl = document.getElementById("tab-resolved-count");
+const chipRowEl = document.getElementById("bucket-chips");
+const paginationEl = document.getElementById("pagination");
+
+const PAGE_SIZE = 10;
 
 let session = null;
 let allJobs = [];
 let currentTab = "pending";
 let undecidedTargetJob = null;
+let pendingBucket = "all";
+let resolvedGroup = "all";
+let currentPage = 1;
 
 const STATUS_LABELS = {
   applied: "已投递",
@@ -163,50 +170,94 @@ function updateStats() {
   tabResolvedCountEl.textContent = `(${resolvedCount})`;
 }
 
+function jobBucketKey(job) {
+  return currentTab === "pending" ? deadlineBucket(job.deadline) : job.status;
+}
+
+function bucketOptions() {
+  const groups = currentTab === "pending" ? DEADLINE_BUCKETS : RESOLVED_GROUPS;
+  return [{ key: "all", label: "全部" }, ...groups];
+}
+
+function activeBucketKey() {
+  return currentTab === "pending" ? pendingBucket : resolvedGroup;
+}
+
+function renderBucketChips(baseFiltered) {
+  const activeKey = activeBucketKey();
+  chipRowEl.innerHTML = "";
+  for (const opt of bucketOptions()) {
+    const count =
+      opt.key === "all" ? baseFiltered.length : baseFiltered.filter((j) => jobBucketKey(j) === opt.key).length;
+    const btn = document.createElement("button");
+    btn.className = "chip" + (activeKey === opt.key ? " active" : "");
+    btn.textContent = `${opt.label} (${count})`;
+    btn.addEventListener("click", () => {
+      if (currentTab === "pending") pendingBucket = opt.key;
+      else resolvedGroup = opt.key;
+      currentPage = 1;
+      renderJobs();
+    });
+    chipRowEl.appendChild(btn);
+  }
+}
+
+function renderPagination(totalPages) {
+  paginationEl.innerHTML = "";
+  if (totalPages <= 1) return;
+  for (let p = 1; p <= totalPages; p++) {
+    const btn = document.createElement("button");
+    btn.className = "page-btn" + (p === currentPage ? " active" : "");
+    btn.textContent = String(p);
+    btn.addEventListener("click", () => {
+      currentPage = p;
+      renderJobs();
+    });
+    paginationEl.appendChild(btn);
+  }
+}
+
 function renderJobs() {
   const sourceVal = sourceFilterEl.value;
   const q = searchEl.value.trim().toLowerCase();
 
-  const filtered = allJobs.filter((j) => {
+  const baseFiltered = allJobs.filter((j) => {
     if (sourceVal && j.source !== sourceVal) return false;
     if (q && !(j.company.toLowerCase().includes(q) || j.title.toLowerCase().includes(q))) return false;
     if (currentTab === "pending") return j.status === "pending";
     return j.status !== "pending";
   });
 
-  if (filtered.length === 0) {
+  renderBucketChips(baseFiltered);
+
+  const bucketKey = activeBucketKey();
+  let finalFiltered =
+    bucketKey === "all" ? baseFiltered : baseFiltered.filter((j) => jobBucketKey(j) === bucketKey);
+
+  if (currentTab === "resolved") {
+    finalFiltered = [...finalFiltered].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
+  }
+
+  if (finalFiltered.length === 0) {
     jobListEl.innerHTML =
       currentTab === "pending"
-        ? '<div class="empty-state">没有待处理的可报名岗位。</div>'
-        : '<div class="empty-state">还没有已处理的岗位。</div>';
+        ? '<div class="empty-state">没有符合条件的待处理岗位。</div>'
+        : '<div class="empty-state">还没有符合条件的已处理岗位。</div>';
+    paginationEl.innerHTML = "";
     return;
   }
 
+  const totalPages = Math.max(1, Math.ceil(finalFiltered.length / PAGE_SIZE));
+  if (currentPage > totalPages) currentPage = totalPages;
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageItems = finalFiltered.slice(start, start + PAGE_SIZE);
+
   jobListEl.innerHTML = "";
-
-  if (currentTab === "pending") {
-    for (const bucket of DEADLINE_BUCKETS) {
-      const group = filtered.filter((j) => deadlineBucket(j.deadline) === bucket.key);
-      if (group.length === 0) continue;
-      jobListEl.appendChild(renderSectionHeader(bucket.label, group.length));
-      for (const job of group) jobListEl.appendChild(renderCard(job));
-    }
-  } else {
-    filtered.sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
-    for (const groupDef of RESOLVED_GROUPS) {
-      const group = filtered.filter((j) => j.status === groupDef.key);
-      if (group.length === 0) continue;
-      jobListEl.appendChild(renderSectionHeader(groupDef.label, group.length));
-      for (const job of group) jobListEl.appendChild(renderResolvedCard(job));
-    }
+  for (const job of pageItems) {
+    jobListEl.appendChild(currentTab === "pending" ? renderCard(job) : renderResolvedCard(job));
   }
-}
 
-function renderSectionHeader(label, count) {
-  const el = document.createElement("div");
-  el.className = "section-header";
-  el.innerHTML = `${escapeHtml(label)} <span class="count">${count}</span>`;
-  return el;
+  renderPagination(totalPages);
 }
 
 function renderCard(job) {
@@ -316,12 +367,19 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
-sourceFilterEl.addEventListener("change", renderJobs);
-searchEl.addEventListener("input", renderJobs);
+sourceFilterEl.addEventListener("change", () => {
+  currentPage = 1;
+  renderJobs();
+});
+searchEl.addEventListener("input", () => {
+  currentPage = 1;
+  renderJobs();
+});
 
 for (const btn of [tabPendingBtn, tabResolvedBtn]) {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
+    currentPage = 1;
     tabPendingBtn.classList.toggle("active", currentTab === "pending");
     tabResolvedBtn.classList.toggle("active", currentTab === "resolved");
     renderJobs();
