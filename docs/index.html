@@ -70,6 +70,23 @@
   </form>
 </dialog>
 
+<dialog id="skip-dialog">
+  <h3>标记不投递</h3>
+  <form id="skip-form">
+    <div class="radio-group">
+      <label><input type="radio" name="skip-reason" value="工资太低"> 工资太低</label>
+      <label><input type="radio" name="skip-reason" value="地区不合适"> 地区不合适</label>
+      <label><input type="radio" name="skip-reason" value="工作内容不喜欢"> 工作内容不喜欢</label>
+      <label><input type="radio" name="skip-reason" value="其他"> 其他</label>
+    </div>
+    <textarea id="skip-other-reason" rows="2" placeholder="请填写具体原因" class="hidden"></textarea>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" id="skip-cancel">取消</button>
+      <button type="submit" class="primary">确认</button>
+    </div>
+  </form>
+</dialog>
+
 <script src="config.js"></script>
 <script type="module" src="app.js"></script>
 </body>

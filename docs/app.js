@@ -22,6 +22,9 @@ const loginError = document.getElementById("login-error");
 const undecidedDialog = document.getElementById("undecided-dialog");
 const undecidedForm = document.getElementById("undecided-form");
 const undecidedReasonEl = document.getElementById("undecided-reason");
+const skipDialog = document.getElementById("skip-dialog");
+const skipForm = document.getElementById("skip-form");
+const skipOtherReasonEl = document.getElementById("skip-other-reason");
 const tabPendingBtn = document.getElementById("tab-pending");
 const tabResolvedBtn = document.getElementById("tab-resolved");
 const tabPendingCountEl = document.getElementById("tab-pending-count");
@@ -35,6 +38,7 @@ let session = null;
 let allJobs = [];
 let currentTab = "pending";
 let undecidedTargetJob = null;
+let skipTargetJob = null;
 let pendingBucket = "all";
 let resolvedGroup = "all";
 let currentPage = 1;
@@ -291,7 +295,7 @@ function renderCard(job) {
   `;
 
   card.querySelector(".icon-btn.check").addEventListener("click", () => setStatus(job, "applied"));
-  card.querySelector(".icon-btn.cross").addEventListener("click", () => setStatus(job, "skipped"));
+  card.querySelector(".icon-btn.cross").addEventListener("click", () => openSkipDialog(job));
   card.querySelector(".icon-btn.undecided").addEventListener("click", () => openUndecidedDialog(job));
 
   return card;
@@ -347,9 +351,39 @@ document.getElementById("undecided-cancel").addEventListener("click", () => {
   undecidedDialog.close();
 });
 
+function openSkipDialog(job) {
+  skipTargetJob = job;
+  skipForm.reset();
+  skipOtherReasonEl.classList.add("hidden");
+  skipDialog.showModal();
+}
+
+for (const radio of skipForm.querySelectorAll('input[name="skip-reason"]')) {
+  radio.addEventListener("change", () => {
+    skipOtherReasonEl.classList.toggle("hidden", radio.value !== "其他" || !radio.checked);
+  });
+}
+
+skipForm.addEventListener("submit", (e) => {
+  e.preventDefault();
+  const selected = skipForm.querySelector('input[name="skip-reason"]:checked');
+  let reason = selected ? selected.value : null;
+  if (reason === "其他") reason = skipOtherReasonEl.value.trim() || "其他";
+  skipDialog.close();
+  if (skipTargetJob) {
+    setStatus(skipTargetJob, "skipped", reason);
+    skipTargetJob = null;
+  }
+});
+
+document.getElementById("skip-cancel").addEventListener("click", () => {
+  skipTargetJob = null;
+  skipDialog.close();
+});
+
 async function setStatus(job, newStatus, note) {
   if (!session) return;
-  const payload = { status: newStatus, status_note: newStatus === "undecided" ? note : null };
+  const payload = { status: newStatus, status_note: note ?? null };
   const { error } = await supabase.from("jobs").update(payload).eq("id", job.id);
   if (error) {
     alert("更新失败：" + error.message);
