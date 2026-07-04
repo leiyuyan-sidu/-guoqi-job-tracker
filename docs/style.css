@@ -172,8 +172,12 @@ header.top h1 {
 .reason-box {
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 14px 16px;
+  padding: 6px 16px;
   background: var(--bg);
+}
+
+.reason-box.open {
+  padding-bottom: 16px;
 }
 
 .reason-box + .reason-box {
@@ -181,13 +185,25 @@ header.top h1 {
 }
 
 .reason-box-title {
+  width: 100%;
+  border: none;
+  background: none;
+  padding: 10px 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 10px;
+  gap: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.reason-box-title .chevron {
+  color: var(--text-muted);
+  font-size: 11px;
+  width: 10px;
 }
 
 .reason-box-title .count {
@@ -203,6 +219,7 @@ header.top h1 {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 4px;
 }
 
 .empty-state.small {

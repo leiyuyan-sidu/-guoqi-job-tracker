@@ -43,6 +43,7 @@ let skipTargetJob = null;
 let pendingBucket = "all";
 let resolvedGroup = "all";
 let currentPage = 1;
+let expandedReasons = new Set();
 
 const STATUS_LABELS = {
   applied: "已投递",
@@ -213,6 +214,7 @@ function renderBucketChips(baseFiltered) {
       if (currentTab === "pending") pendingBucket = opt.key;
       else resolvedGroup = opt.key;
       currentPage = 1;
+      expandedReasons.clear();
       renderJobs();
     });
     chipRowEl.appendChild(btn);
@@ -301,18 +303,32 @@ function renderReasonBoxes(jobs, categories) {
       reason === "其他原因" ? !categories.includes(j.status_note) : j.status_note === reason
     );
 
-    const box = document.createElement("div");
-    box.className = "reason-box";
-    box.innerHTML = `<div class="reason-box-title">${escapeHtml(reason)} <span class="count">${group.length}</span></div>`;
+    const isOpen = expandedReasons.has(reason);
 
-    const body = document.createElement("div");
-    body.className = "reason-box-body";
-    if (group.length === 0) {
-      body.innerHTML = '<div class="empty-state small">暂无</div>';
-    } else {
-      for (const job of group) body.appendChild(renderResolvedCard(job));
+    const box = document.createElement("div");
+    box.className = "reason-box" + (isOpen ? " open" : "");
+
+    const title = document.createElement("button");
+    title.type = "button";
+    title.className = "reason-box-title";
+    title.innerHTML = `<span class="chevron">${isOpen ? "▾" : "▸"}</span><span>${escapeHtml(reason)}</span><span class="count">${group.length}</span>`;
+    title.addEventListener("click", () => {
+      if (expandedReasons.has(reason)) expandedReasons.delete(reason);
+      else expandedReasons.add(reason);
+      renderJobs();
+    });
+    box.appendChild(title);
+
+    if (isOpen) {
+      const body = document.createElement("div");
+      body.className = "reason-box-body";
+      if (group.length === 0) {
+        body.innerHTML = '<div class="empty-state small">暂无</div>';
+      } else {
+        for (const job of group) body.appendChild(renderResolvedCard(job));
+      }
+      box.appendChild(body);
     }
-    box.appendChild(body);
     jobListEl.appendChild(box);
   }
 }
@@ -488,6 +504,7 @@ for (const btn of [tabPendingBtn, tabResolvedBtn]) {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
     currentPage = 1;
+    expandedReasons.clear();
     tabPendingBtn.classList.toggle("active", currentTab === "pending");
     tabResolvedBtn.classList.toggle("active", currentTab === "resolved");
     renderJobs();
