@@ -61,7 +61,7 @@ const DEADLINE_BUCKETS = [
 const RESOLVED_GROUPS = [
   { key: "applied", label: "已投递" },
   { key: "skipped", label: "不投递" },
-  { key: "undecided", label: "其他原因" },
+  { key: "undecided", label: "待定" },
 ];
 
 function deadlineBucket(deadline) {
