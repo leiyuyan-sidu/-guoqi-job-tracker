@@ -65,7 +65,7 @@ const RESOLVED_GROUPS = [
   { key: "undecided", label: "待定" },
 ];
 
-const SKIP_REASON_CATEGORIES = ["工资太低", "地区不合适", "工作内容不喜欢"];
+const SKIP_REASON_CATEGORIES = ["工资太低", "地区不合适", "工作内容不喜欢", "专业不符合"];
 const UNDECIDED_REASON_CATEGORIES = ["工资一般", "地区一般", "专业不太符合"];
 
 function toLocalDateStr(d) {
