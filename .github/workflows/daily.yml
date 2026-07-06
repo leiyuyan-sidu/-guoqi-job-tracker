@@ -1,4 +1,4 @@
-name: 每日抓取国聘校招岗位
+name: 每日抓取国央企校招岗位
 
 on:
   schedule:
