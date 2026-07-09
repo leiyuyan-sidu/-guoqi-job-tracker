@@ -32,7 +32,7 @@
 
 - `SUPABASE_URL`：同上的 Project URL
 - `SUPABASE_SERVICE_KEY`：上一步的 service_role key（这个有完整数据库权限，只能放在 Secrets 里，绝对不能出现在代码或网页里）
-- `ANTHROPIC_API_KEY`：你的 Anthropic API key，去 [console.anthropic.com](https://console.anthropic.com) 申请，用于给规则判断不出来的岗位做语义匹配（用的是 Haiku 模型，成本很低）。注意：DeepSeek 官方 API 从 GitHub Actions（海外机房）访问经常连接超时，所以这里固定用 Anthropic
+- `OPENROUTER_API_KEY`：你的 OpenRouter API key，去 [openrouter.ai](https://openrouter.ai) 注册申请，用于给规则判断不出来的岗位做语义匹配（通过 OpenRouter 调用 Claude Haiku 模型）。之所以用 OpenRouter 中转而不直接用 Anthropic/DeepSeek 官方 API，是因为 Anthropic 官网注册需要境外资质，DeepSeek 官方 API 又从 GitHub Actions（海外机房）访问经常连接超时，OpenRouter 作为国际中转平台注册门槛低、连通性也稳定
 
 ### 4. 开启 GitHub Pages
 
@@ -40,7 +40,7 @@
 
 ### 5. 手动跑一次抓取
 
-仓库 Actions 标签页 → 选择 "每日抓取国聘校招岗位" → Run workflow，手动触发一次，跑完之后刷新网页就能看到数据了。之后每天北京时间 6:00 会自动跑。
+仓库 Actions 标签页 → 选择 "每日抓取国央企校招岗位" → Run workflow，手动触发一次，跑完之后刷新网页就能看到数据了。之后每天北京时间 6:00 会自动跑。
 
 ## 本地开发/调试抓取脚本
 
@@ -49,7 +49,7 @@ cd scraper
 pip install -r requirements.txt
 set SUPABASE_URL=...
 set SUPABASE_SERVICE_KEY=...
-set ANTHROPIC_API_KEY=...
+set OPENROUTER_API_KEY=...
 python main.py
 ```
 
@@ -64,4 +64,4 @@ python main.py
 ## 数据来源
 
 - **国聘**（`scraper/sources/guopin.py`）：公开 JSON 接口，有结构化的专业/学历字段，规则命中不了才交给大模型
-- **国务院国资委官网**（`scraper/sources/sasac.py`）："人事招聘"栏目，混杂校招/社招/中层管理招聘，先按标题关键词（校招/校园招聘/应届/毕业生）粗筛，公告正文是无结构文字，专业、学历、招聘单位都交给大模型从文字里提取；少数公告是招聘海报图片、没有文字，这种会把图片直接传给大模型识别（Claude 支持读图）
+- **国务院国资委官网**（`scraper/sources/sasac.py`）："人事招聘"栏目，混杂校招/社招/中层管理招聘，先按标题关键词（校招/校园招聘/应届/毕业生）粗筛，公告正文是无结构文字，专业、学历、招聘单位都交给大模型从文字里提取；少数公告是招聘海报图片、没有文字，这种会把图片直接传给大模型识别

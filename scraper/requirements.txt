@@ -1,5 +1,4 @@
 requests>=2.32
 supabase>=2.7
-anthropic>=0.34
 python-dotenv>=1.0
 beautifulsoup4>=4.12

@@ -2,19 +2,35 @@ import base64
 import json
 import os
 
-import anthropic
 import requests
 
 from config import PROFILE
 
-_client = None
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
+MODEL = "anthropic/claude-haiku-4.5"
 
 
-def _get_client():
-    global _client
-    if _client is None:
-        _client = anthropic.Anthropic(api_key=os.environ["ANTHROPIC_API_KEY"], timeout=20.0)
-    return _client
+def _headers():
+    return {
+        "Authorization": f"Bearer {os.environ['OPENROUTER_API_KEY']}",
+        "Content-Type": "application/json",
+    }
+
+
+def _chat(content, max_tokens):
+    resp = requests.post(
+        API_URL,
+        headers=_headers(),
+        json={
+            "model": MODEL,
+            "messages": [{"role": "user", "content": content}],
+            "max_tokens": max_tokens,
+            "temperature": 0,
+        },
+        timeout=30,
+    )
+    resp.raise_for_status()
+    return resp.json()["choices"][0]["message"]["content"].strip()
 
 
 PROMPT_TEMPLATE = """你在帮一名应届毕业生判断能否报名某个国企/央企校园招聘岗位。
@@ -46,12 +62,7 @@ def classify(major_cn_list, contents):
         major_cn="、".join(major_cn_list or []) or "（未注明）",
         contents=(contents or "")[:800],
     )
-    resp = _get_client().messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=200,
-        messages=[{"role": "user", "content": prompt}],
-    )
-    text = resp.content[0].text.strip()
+    text = _chat(prompt, max_tokens=200)
     try:
         data = json.loads(text)
         return bool(data.get("eligible")), str(data.get("reason", "")).strip()
@@ -83,14 +94,14 @@ FREEFORM_PROMPT_TEMPLATE = """你在帮一名应届毕业生判断某国企/央�
 """
 
 
-def _fetch_image_block(image_url):
+def _image_content_block(image_url):
     resp = requests.get(image_url, timeout=20)
     resp.raise_for_status()
     media_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0]
     if not media_type.startswith("image/"):
         media_type = "image/jpeg"
     data = base64.b64encode(resp.content).decode("ascii")
-    return {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}}
+    return {"type": "image_url", "image_url": {"url": f"data:{media_type};base64,{data}"}}
 
 
 def classify_freeform(title, contents, image_url=None):
@@ -110,16 +121,11 @@ def classify_freeform(title, contents, image_url=None):
     )
 
     if use_image:
-        content = [_fetch_image_block(image_url), {"type": "text", "text": prompt}]
+        content = [{"type": "text", "text": prompt}, _image_content_block(image_url)]
     else:
         content = prompt
 
-    resp = _get_client().messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=300,
-        messages=[{"role": "user", "content": content}],
-    )
-    text = resp.content[0].text.strip()
+    text = _chat(content, max_tokens=300)
     try:
         data = json.loads(text)
     except json.JSONDecodeError:
