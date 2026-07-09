@@ -3,7 +3,7 @@ import sys
 import llm_match
 from db import get_client, upsert_jobs
 from match import check_disliked, is_blue_collar, rule_based_eligible
-from sources import guopin, sasac
+from sources import eximbank, guopin, sasac
 
 
 def build_row_guopin(job):
@@ -43,13 +43,14 @@ def build_row_guopin(job):
     }
 
 
-def build_row_sasac(item):
+def build_row_freeform(source, item, fetch_detail_fn):
+    """国资委、进出口银行这类"公告是一整段无结构正文"的数据源共用的处理逻辑。"""
     title = item["title"]
 
     if is_blue_collar(title, None):
         return {
-            "raw_key": f"sasac:{item['url']}",
-            "source": "sasac",
+            "raw_key": f"{source}:{item['url']}",
+            "source": source,
             "company": "详见公告",
             "title": title,
             "location": None,
@@ -64,15 +65,15 @@ def build_row_sasac(item):
             "url": item["url"],
         }
 
-    detail = sasac.fetch_detail(item["url"])
+    detail = fetch_detail_fn(item["url"])
     contents = detail["text"]
     data = llm_match.classify_freeform(title, contents, image_url=detail["image_url"])
 
     interest_tag = check_disliked(title, data["company"], contents)
 
     return {
-        "raw_key": f"sasac:{item['url']}",
-        "source": "sasac",
+        "raw_key": f"{source}:{item['url']}",
+        "source": source,
         "company": data["company"],
         "title": title,
         "location": None,
@@ -86,6 +87,20 @@ def build_row_sasac(item):
         "deadline": None,
         "url": item["url"],
     }
+
+
+def run_freeform_source(source, fetch_list_fn, fetch_detail_fn, seen_keys, rows, label):
+    print(f"抓取{label}…")
+    items = fetch_list_fn()
+    new_items = [it for it in items if f"{source}:{it['url']}" not in seen_keys]
+    print(f"共抓到 {len(items)} 条校招相关公告，其中新公告 {len(new_items)} 条，开始逐条判断…")
+    for i, item in enumerate(new_items, 1):
+        try:
+            rows.append(build_row_freeform(source, item, fetch_detail_fn))
+        except Exception as e:
+            print(f"[跳过] {source} url={item.get('url')} 处理失败: {e}", file=sys.stderr)
+        if i % 20 == 0:
+            print(f"  已处理 {i}/{len(new_items)}")
 
 
 def main():
@@ -110,17 +125,8 @@ def main():
         if i % 20 == 0:
             print(f"  已处理 {i}/{len(new_jobs)}")
 
-    print("抓取国资委官网人事招聘公告…")
-    items = sasac.fetch_list()
-    new_items = [it for it in items if f"sasac:{it['url']}" not in seen_keys]
-    print(f"共抓到 {len(items)} 条校招相关公告，其中新公告 {len(new_items)} 条，开始逐条判断…")
-    for i, item in enumerate(new_items, 1):
-        try:
-            rows.append(build_row_sasac(item))
-        except Exception as e:
-            print(f"[跳过] sasac url={item.get('url')} 处理失败: {e}", file=sys.stderr)
-        if i % 20 == 0:
-            print(f"  已处理 {i}/{len(new_items)}")
+    run_freeform_source("sasac", sasac.fetch_list, sasac.fetch_detail, seen_keys, rows, "国资委官网人事招聘公告")
+    run_freeform_source("eximbank", eximbank.fetch_list, eximbank.fetch_detail, seen_keys, rows, "进出口银行人才招聘公告")
 
     eligible_count = sum(1 for r in rows if r["eligible"])
     print(f"新增数据中可报名 {eligible_count} 条，写入 Supabase（含不符合的岗位，仅用于避免重复判断，前端只展示可报名的）…")
