@@ -29,7 +29,8 @@ def _chat(content, max_tokens):
         },
         timeout=30,
     )
-    resp.raise_for_status()
+    if not resp.ok:
+        raise RuntimeError(f"OpenRouter API {resp.status_code}: {resp.text[:500]}")
     return resp.json()["choices"][0]["message"]["content"].strip()
 
 
