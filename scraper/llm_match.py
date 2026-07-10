@@ -6,8 +6,10 @@ import requests
 
 from config import PROFILE
 
+# 用通义千问 Qwen3-VL（阿里，中国账单地区可用，支持读图，中文好，便宜）
+# 注意：OpenRouter 对中国账单地区屏蔽了 OpenAI / Anthropic / Google 的模型，不能用 claude/gpt/gemini
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-MODEL = "anthropic/claude-haiku-4.5"
+MODEL = "qwen/qwen3-vl-32b-instruct"
 
 
 def _headers():
@@ -32,6 +34,21 @@ def _chat(content, max_tokens):
     if not resp.ok:
         raise RuntimeError(f"OpenRouter API {resp.status_code}: {resp.text[:500]}")
     return resp.json()["choices"][0]["message"]["content"].strip()
+
+
+def _parse_json(text):
+    """容错解析模型返回的 JSON：有的模型会把 JSON 包在 ```json ... ``` 代码块里，
+    或在前后带解释文字，这里只截取第一个 {...} 片段来解析。"""
+    text = text.strip()
+    if text.startswith("```"):
+        text = text.strip("`")
+        if text.lstrip().lower().startswith("json"):
+            text = text.lstrip()[4:]
+    start = text.find("{")
+    end = text.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        text = text[start : end + 1]
+    return json.loads(text)
 
 
 PROMPT_TEMPLATE = """你在帮一名应届毕业生判断能否报名某个国企/央企校园招聘岗位。
@@ -65,7 +82,7 @@ def classify(major_cn_list, contents):
     )
     text = _chat(prompt, max_tokens=200)
     try:
-        data = json.loads(text)
+        data = _parse_json(text)
         return bool(data.get("eligible")), str(data.get("reason", "")).strip()
     except (json.JSONDecodeError, IndexError, KeyError):
         return False, "模型判断解析失败，默认不符合，需人工复核"
@@ -128,7 +145,7 @@ def classify_freeform(title, contents, image_url=None):
 
     text = _chat(content, max_tokens=300)
     try:
-        data = json.loads(text)
+        data = _parse_json(text)
     except json.JSONDecodeError:
         data = {}
     return {

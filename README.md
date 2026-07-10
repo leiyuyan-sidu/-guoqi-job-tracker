@@ -32,7 +32,7 @@
 
 - `SUPABASE_URL`：同上的 Project URL
 - `SUPABASE_SERVICE_KEY`：上一步的 service_role key（这个有完整数据库权限，只能放在 Secrets 里，绝对不能出现在代码或网页里）
-- `OPENROUTER_API_KEY`：你的 OpenRouter API key，去 [openrouter.ai](https://openrouter.ai) 注册申请，用于给规则判断不出来的岗位做语义匹配（通过 OpenRouter 调用 Claude Haiku 模型）。之所以用 OpenRouter 中转而不直接用 Anthropic/DeepSeek 官方 API，是因为 Anthropic 官网注册需要境外资质，DeepSeek 官方 API 又从 GitHub Actions（海外机房）访问经常连接超时，OpenRouter 作为国际中转平台注册门槛低、连通性也稳定
+- `OPENROUTER_API_KEY`：你的 OpenRouter API key，去 [openrouter.ai](https://openrouter.ai) 注册申请，用于给规则判断不出来的岗位做语义匹配。通过 OpenRouter 中转调用**通义千问 Qwen3-VL**模型（`scraper/llm_match.py` 里的 `MODEL`）。注意：OpenRouter 对中国账单地区屏蔽了 OpenAI / Anthropic / Google 三家的模型，所以不能用 claude/gpt/gemini，只能用 Qwen、DeepSeek 等其他厂商的模型；选 Qwen3-VL 是因为它中文好、便宜、且支持读图（国资委有的公告是招聘海报图片）
 
 ### 4. 开启 GitHub Pages
 
