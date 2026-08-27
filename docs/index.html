@@ -15,11 +15,11 @@
     </div>
     <div class="stats">
       <div class="stat-card">
-        <div class="num" id="stat-total">-</div>
+        <div class="num" id="stat-total">—</div>
         <div class="label">可报名岗位</div>
       </div>
       <div class="stat-card muted">
-        <div class="num" id="stat-applied">-</div>
+        <div class="num" id="stat-applied">—</div>
         <div class="label">已投递</div>
       </div>
     </div>
@@ -41,7 +41,10 @@
   <div class="chip-row" id="bucket-chips"></div>
 
   <div class="job-list" id="job-list">
-    <div class="loading-state">加载中…</div>
+    <div class="loading-heading"><span class="loading-dot"></span>正在加载最新岗位信息…</div>
+    <div class="skeleton-card" aria-hidden="true"><i class="skeleton-line title"></i><i class="skeleton-line medium"></i><i class="skeleton-line long"></i><i class="skeleton-line footer"></i></div>
+    <div class="skeleton-card" aria-hidden="true"><i class="skeleton-line title short"></i><i class="skeleton-line medium"></i><i class="skeleton-line long"></i><i class="skeleton-line footer"></i></div>
+    <div class="skeleton-card" aria-hidden="true"><i class="skeleton-line title"></i><i class="skeleton-line medium short"></i><i class="skeleton-line long"></i><i class="skeleton-line footer"></i></div>
   </div>
 
   <div class="pagination" id="pagination"></div>

@@ -37,6 +37,8 @@ const PAGE_SIZE = 10;
 
 let session = null;
 let allJobs = [];
+let jobsLoading = true;
+let jobsLoadError = null;
 let currentTab = "pending";
 let undecidedTargetJob = null;
 let skipTargetJob = null;
@@ -150,7 +152,9 @@ document.getElementById("login-cancel").addEventListener("click", () => {
 });
 
 async function loadJobs() {
-  jobListEl.innerHTML = '<div class="loading-state">加载中…</div>';
+  jobsLoading = true;
+  jobsLoadError = null;
+  renderJobs();
   const { data, error } = await supabase
     .from("jobs")
     .select("*")
@@ -158,10 +162,13 @@ async function loadJobs() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    jobListEl.innerHTML = `<div class="empty-state">加载失败：${error.message}</div>`;
+    jobsLoading = false;
+    jobsLoadError = error.message;
+    renderJobs();
     return;
   }
   allJobs = data;
+  jobsLoading = false;
   populateSourceFilter();
   updateStats();
   renderJobs();
@@ -237,6 +244,17 @@ function renderPagination(totalPages) {
 }
 
 function renderJobs() {
+  if (jobsLoading) {
+    renderLoadingSkeleton();
+    return;
+  }
+  if (jobsLoadError) {
+    jobListEl.innerHTML = `<div class="empty-state">岗位加载失败，请刷新重试。<br><small>${escapeHtml(jobsLoadError)}</small></div>`;
+    chipRowEl.innerHTML = "";
+    paginationEl.innerHTML = "";
+    return;
+  }
+
   const sourceVal = sourceFilterEl.value;
   const dateVal = dateFilterEl.value;
   const q = searchEl.value.trim().toLowerCase();
@@ -291,6 +309,22 @@ function renderJobs() {
   }
 
   renderPagination(totalPages);
+}
+
+function renderLoadingSkeleton() {
+  updatedHintEl.textContent = "正在连接招聘信息库…";
+  chipRowEl.innerHTML = "";
+  paginationEl.innerHTML = "";
+  jobListEl.innerHTML = `
+    <div class="loading-heading"><span class="loading-dot"></span>正在加载最新岗位信息…</div>
+    ${[0, 1, 2].map((index) => `
+      <div class="skeleton-card" aria-hidden="true">
+        <i class="skeleton-line title${index === 1 ? " short" : ""}"></i>
+        <i class="skeleton-line medium${index === 2 ? " short" : ""}"></i>
+        <i class="skeleton-line long"></i>
+        <i class="skeleton-line footer"></i>
+      </div>`).join("")}
+  `;
 }
 
 function renderReasonBoxes(jobs, categories) {
