@@ -2,7 +2,8 @@ import sys
 
 import llm_match
 from db import get_client, upsert_jobs
-from match import check_disliked, is_blue_collar, rule_based_eligible
+from config import PROFILE
+from match import check_disliked, check_graduation_year, is_blue_collar, rule_based_eligible
 from sources import eximbank, guopin, sasac
 
 
@@ -12,7 +13,13 @@ def build_row_guopin(job):
     title = job.get("job_name")
     education = job.get("education_cn")
 
-    if is_blue_collar(title, education):
+    cohort_ok, cohort_reason = check_graduation_year(
+        PROFILE["graduation_year"], title, contents
+    )
+
+    if cohort_ok is False:
+        eligible, reason = False, cohort_reason
+    elif is_blue_collar(title, education):
         eligible, reason = False, f"学历要求「{education}」或岗位类型为技能/蓝领岗，非硕士管理类岗位，直接排除"
     else:
         eligible, reason = rule_based_eligible(major_cn, contents)
@@ -67,7 +74,14 @@ def build_row_freeform(source, item, fetch_detail_fn):
 
     detail = fetch_detail_fn(item["url"])
     contents = detail["text"]
+    cohort_ok, cohort_reason = check_graduation_year(
+        PROFILE["graduation_year"], title, contents
+    )
     data = llm_match.classify_freeform(title, contents, image_url=detail["image_url"])
+
+    if cohort_ok is False:
+        data["eligible"] = False
+        data["reason"] = cohort_reason
 
     interest_tag = check_disliked(title, data["company"], contents)
 
@@ -80,7 +94,7 @@ def build_row_freeform(source, item, fetch_detail_fn):
         "education": data["education"],
         "major_requirement": data["major_requirement"],
         "description": contents or "（公告为招聘海报图片，以上信息由 AI 识别图片内容提取，建议点开原文核实）",
-        "eligible": data["is_campus"] and data["eligible"],
+        "eligible": data["is_campus"] and data["target_cohort"] and data["eligible"],
         "eligible_reason": data["reason"],
         "interest_tag": interest_tag,
         "posted_at": item.get("posted_at"),
@@ -103,8 +117,26 @@ def run_freeform_source(source, fetch_list_fn, fetch_detail_fn, seen_keys, rows,
             print(f"  已处理 {i}/{len(new_items)}")
 
 
+def recheck_existing_graduation_year(client):
+    """把历史库中明确只面向其他届别的岗位移出前端，避免规则只对新增数据生效。"""
+    result = client.table("jobs").select("id,title,description").eq("eligible", True).execute()
+    excluded = 0
+    for row in result.data:
+        cohort_ok, reason = check_graduation_year(
+            PROFILE["graduation_year"], row.get("title"), row.get("description")
+        )
+        if cohort_ok is False:
+            client.table("jobs").update(
+                {"eligible": False, "eligible_reason": reason}
+            ).eq("id", row["id"]).execute()
+            excluded += 1
+    print(f"历史岗位届别复核完成：排除 {excluded} 条不面向{PROFILE['graduation_year']}届的岗位")
+
+
 def main():
     client = get_client()
+
+    recheck_existing_graduation_year(client)
 
     print("读取已入库的岗位（避免重复用大模型判断已经判过的岗位）…")
     existing = client.table("jobs").select("raw_key").execute()

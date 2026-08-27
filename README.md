@@ -55,6 +55,7 @@ python main.py
 
 ## 匹配规则说明
 
+- 应聘人毕业届别在 `scraper/config.py` 的 `PROFILE.graduation_year` 中配置，目前为 **2027届**。公告明确仅面向2026届等其他届别时直接排除；同时包含2027届、注明“2026届及以后”或未限制届别时保留。每次运行也会复核历史岗位，避免旧数据继续显示。
 - `scraper/config.py` 里的 `ELIGIBLE_MAJOR_KEYWORDS` 是"直接判定可报名"的专业关键词白名单（对照岗位的结构化专业要求字段，不是岗位描述正文），命中就直接算符合，不用调用模型
 - 规则判不出来的岗位，交给 `scraper/llm_match.py` 用大模型结合完整岗位描述判断
 - `LOW_EDUCATION_LEVELS` / `EXCLUDED_TITLE_KEYWORDS` 用来排除大专/中专学历要求或厨师、技工、司机等蓝领/技能岗位，这些不进入专业匹配环节，直接判定不符合

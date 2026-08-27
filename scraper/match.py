@@ -1,9 +1,67 @@
+import re
+
 from config import (
     ELIGIBLE_MAJOR_KEYWORDS,
     DISLIKED_KEYWORDS,
     LOW_EDUCATION_LEVELS,
     EXCLUDED_TITLE_KEYWORDS,
 )
+
+
+_COHORT_PATTERNS = [
+    re.compile(r"(?<!\d)(20\d{2}|\d{2})\s*届"),
+    re.compile(r"(?<!\d)(20\d{2})\s*年(?:度)?\s*(?:应届)?毕业生"),
+    re.compile(r"(?:毕业时间|毕业年份|毕业日期)[^。；;\n]{0,20}?(20\d{2})\s*年"),
+    re.compile(r"(?<!\d)(20\d{2})\s*年[^。；;\n]{0,8}?毕业"),
+]
+
+
+def check_graduation_year(target_year, *texts):
+    """检查公告明确限定的毕业届别。
+
+    返回 (True, reason) 表示目标届别可报名，(False, reason) 表示公告明确排除目标届别，
+    (None, None) 表示正文没有足够明确的届别限制。只识别“届/毕业生/毕业时间”等语境，
+    避免把“2026年度招聘”误判成仅招2026届。
+    """
+    text = " ".join(str(value) for value in texts if value)
+    if not text:
+        return None, None
+
+    years = set()
+    for pattern in _COHORT_PATTERNS:
+        for raw_year in pattern.findall(text):
+            year = int(raw_year)
+            years.add(2000 + year if year < 100 else year)
+
+    if target_year in years:
+        return True, f"公告包含{target_year}届/年毕业生"
+
+    for start_raw, end_raw in re.findall(
+        r"(?<!\d)(20\d{2}|\d{2})\s*(?:至|到|—|-|~|～)\s*(20\d{2}|\d{2})\s*届", text
+    ):
+        start_year, end_year = int(start_raw), int(end_raw)
+        start_year = 2000 + start_year if start_year < 100 else start_year
+        end_year = 2000 + end_year if end_year < 100 else end_year
+        if start_year <= target_year <= end_year:
+            return True, f"公告面向{start_year}至{end_year}届，包含{target_year}届"
+
+    # “2026届及以后（之后）”包含2027届；“2026届及以前”则不包含。
+    for raw_year in re.findall(r"(?<!\d)(20\d{2}|\d{2})\s*届\s*(?:及|或)?(?:以后|之后)", text):
+        start_year = int(raw_year)
+        start_year = 2000 + start_year if start_year < 100 else start_year
+        if target_year >= start_year:
+            return True, f"公告面向{start_year}届及以后毕业生，包含{target_year}届"
+
+    for raw_year in re.findall(r"(?<!\d)(20\d{2}|\d{2})\s*届\s*(?:及|或)?(?:以前|之前)", text):
+        end_year = int(raw_year)
+        end_year = 2000 + end_year if end_year < 100 else end_year
+        if target_year <= end_year:
+            return True, f"公告面向{end_year}届及以前毕业生，包含{target_year}届"
+
+    if years:
+        listed = "、".join(str(year) for year in sorted(years))
+        return False, f"公告仅明确面向{listed}届/年毕业生，不包含{target_year}届"
+    return None, None
 
 
 def is_blue_collar(title, education):

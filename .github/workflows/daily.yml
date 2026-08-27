@@ -1,6 +1,11 @@
 name: 每日抓取国央企校招岗位
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - "scraper/**"
+      - ".github/workflows/daily.yml"
   schedule:
     # 每天北京时间 06:00（UTC 前一天 22:00）
     - cron: "0 22 * * *"

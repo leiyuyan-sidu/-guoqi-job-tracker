@@ -2,6 +2,7 @@ PROFILE = {
     "degree": "硕士",
     "major": "国际商务",
     "school": "吉林大学",
+    "graduation_year": 2027,
     "cet4_passed": True,
     "cet6_passed": True,
 }

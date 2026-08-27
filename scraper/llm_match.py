@@ -56,15 +56,17 @@ PROMPT_TEMPLATE = """你在帮一名应届毕业生判断能否报名某个国�
 应聘人情况：
 - 学历：{degree}
 - 专业：{major}（工商管理类下的专业学位硕士）
+- 毕业届别：{graduation_year}届
 - 英语四级：{cet4}，英语六级：{cet6}
 
 岗位专业要求原文：{major_cn}
 岗位描述：{contents}
 
 请判断这名应聘人能否报名该岗位。规则：
-1. 只要专业要求覆盖"经济管理类/商科/文科类不限专业"等宽泛表述，或明确包含国际商务、国际贸易相关专业，即算符合。
-2. 只要不是要求某个和商科完全无关的理工科/医科专业独占（比如只招计算机、临床医学、机械等且没有放宽），就倾向认为符合。
-3. 语言类要求（如英语四级/六级）应聘人已经满足。
+1. 如果岗位明确只面向其他届毕业生、不包含{graduation_year}届，必须判定不符合。
+2. 只要专业要求覆盖"经济管理类/商科/文科类不限专业"等宽泛表述，或明确包含国际商务、国际贸易相关专业，即算符合。
+3. 只要不是要求某个和商科完全无关的理工科/医科专业独占（比如只招计算机、临床医学、机械等且没有放宽），就倾向认为符合。
+4. 语言类要求（如英语四级/六级）应聘人已经满足。
 
 请只输出一个 JSON 对象，不要输出其他任何文字，格式为：
 {{"eligible": true 或 false, "reason": "一句话中文理由"}}
@@ -75,6 +77,7 @@ def classify(major_cn_list, contents):
     prompt = PROMPT_TEMPLATE.format(
         degree=PROFILE["degree"],
         major=PROFILE["major"],
+        graduation_year=PROFILE["graduation_year"],
         cet4="已通过" if PROFILE["cet4_passed"] else "未通过",
         cet6="已通过" if PROFILE["cet6_passed"] else "未通过",
         major_cn="、".join(major_cn_list or []) or "（未注明）",
@@ -93,6 +96,7 @@ FREEFORM_PROMPT_TEMPLATE = """你在帮一名应届毕业生判断某国企/央�
 应聘人情况：
 - 学历：{degree}
 - 专业：{major}（工商管理类下的专业学位硕士）
+- 毕业届别：{graduation_year}届
 - 英语四级：{cet4}，英语六级：{cet6}
 
 公告标题：{title}
@@ -101,14 +105,15 @@ FREEFORM_PROMPT_TEMPLATE = """你在帮一名应届毕业生判断某国企/央�
 请完成以下判断：
 1. 这条公告是不是"应届毕业生校园招聘"性质？如果是社会招聘、要求多年工作经验的中层管理岗位、事业单位定向招考等非应届校招性质，is_campus 填 false。
 2. 如果 is_campus 为 false，eligible 也填 false，reason 说明"非应届校招公告"。
-3. 如果 is_campus 为 true，按以下规则判断专业是否符合：
+3. 判断公告是否允许{graduation_year}届毕业生报名，结果填入 target_cohort；如果明确只招其他届别，target_cohort 和 eligible 都填 false。未限制届别时 target_cohort 填 true。
+4. 如果 is_campus 和 target_cohort 都为 true，按以下规则判断专业是否符合：
    a. 专业要求覆盖"经济管理类/商科/文科类不限专业"等宽泛表述，或明确包含国际商务、国际贸易相关专业，即算符合
    b. 只要不是要求某个和商科完全无关的理工科/医科专业独占，就倾向认为符合
    c. 语言类要求（如英语四级/六级）应聘人已经满足
-4. 从正文里提取：招聘单位名称（company）、学历要求概括（education，找不到填"详见公告"）、专业要求概括（major_requirement，找不到填"详见公告"）
+5. 从正文里提取：招聘单位名称（company）、学历要求概括（education，找不到填"详见公告"）、专业要求概括（major_requirement，找不到填"详见公告"）
 
 请只输出一个 JSON 对象，不要输出其他任何文字，格式为：
-{{"is_campus": true 或 false, "eligible": true 或 false, "reason": "一句话中文理由", "company": "招聘单位名称", "education": "学历要求概括", "major_requirement": "专业要求概括"}}
+{{"is_campus": true 或 false, "target_cohort": true 或 false, "eligible": true 或 false, "reason": "一句话中文理由", "company": "招聘单位名称", "education": "学历要求概括", "major_requirement": "专业要求概括"}}
 """
 
 
@@ -132,6 +137,7 @@ def classify_freeform(title, contents, image_url=None):
     prompt = FREEFORM_PROMPT_TEMPLATE.format(
         degree=PROFILE["degree"],
         major=PROFILE["major"],
+        graduation_year=PROFILE["graduation_year"],
         cet4="已通过" if PROFILE["cet4_passed"] else "未通过",
         cet6="已通过" if PROFILE["cet6_passed"] else "未通过",
         title=title,
@@ -150,6 +156,7 @@ def classify_freeform(title, contents, image_url=None):
         data = {}
     return {
         "is_campus": bool(data.get("is_campus")),
+        "target_cohort": bool(data.get("target_cohort")),
         "eligible": bool(data.get("eligible")),
         "reason": str(data.get("reason") or "模型判断解析失败，默认不符合，需人工复核"),
         "company": str(data.get("company") or "详见公告"),
