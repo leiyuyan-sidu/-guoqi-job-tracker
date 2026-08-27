@@ -544,6 +544,39 @@ header.top h1 {
   font-size: 14px;
 }
 
+.empty-state-card {
+  max-width: 460px;
+  margin: 28px auto 0;
+  padding: 30px 28px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.empty-state-card .empty-state-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  margin: 0 auto 12px;
+  border-radius: 50%;
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-size: 17px;
+}
+
+.empty-state-card strong {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.empty-state-card p {
+  margin: 7px 0 0;
+  line-height: 1.7;
+}
+
 .reason {
   margin: 4px 0 0;
   font-size: 12px;

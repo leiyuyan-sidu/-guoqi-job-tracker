@@ -152,6 +152,7 @@ document.getElementById("login-cancel").addEventListener("click", () => {
 });
 
 async function loadJobs() {
+  const loadingStartedAt = performance.now();
   jobsLoading = true;
   jobsLoadError = null;
   renderJobs();
@@ -162,16 +163,25 @@ async function loadJobs() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    await keepSkeletonVisible(loadingStartedAt);
     jobsLoading = false;
     jobsLoadError = error.message;
     renderJobs();
     return;
   }
   allJobs = data;
+  await keepSkeletonVisible(loadingStartedAt);
   jobsLoading = false;
   populateSourceFilter();
   updateStats();
   renderJobs();
+}
+
+async function keepSkeletonVisible(startedAt, minimumMs = 1200) {
+  const remaining = minimumMs - (performance.now() - startedAt);
+  if (remaining > 0) {
+    await new Promise((resolve) => window.setTimeout(resolve, remaining));
+  }
 }
 
 function populateSourceFilter() {
@@ -281,10 +291,20 @@ function renderJobs() {
   }
 
   if (finalFiltered.length === 0) {
-    jobListEl.innerHTML =
-      currentTab === "pending"
-        ? '<div class="empty-state">没有符合条件的待处理岗位。</div>'
-        : '<div class="empty-state">还没有符合条件的已处理岗位。</div>';
+    const hasActiveFilters = Boolean(sourceVal || dateVal || q || bucketKey !== "all");
+    if (currentTab === "pending" && !hasActiveFilters && allJobs.length === 0) {
+      jobListEl.innerHTML = `
+        <div class="empty-state empty-state-card">
+          <span class="empty-state-icon">✓</span>
+          <strong>岗位信息已加载完成</strong>
+          <p>暂未发现符合2027届报名条件的岗位，系统会在每日更新后自动补充。</p>
+        </div>`;
+    } else {
+      jobListEl.innerHTML =
+        currentTab === "pending"
+          ? '<div class="empty-state">当前筛选条件下没有待处理岗位。</div>'
+          : '<div class="empty-state">还没有符合条件的已处理岗位。</div>';
+    }
     paginationEl.innerHTML = "";
     return;
   }
