@@ -22,6 +22,12 @@
   box-sizing: border-box;
 }
 
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -31,9 +37,19 @@ body {
 }
 
 .wrap {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100dvh;
   max-width: 900px;
   margin: 0 auto;
-  padding: 28px 20px 80px;
+  padding: 28px 20px 16px;
+}
+
+.dashboard-controls {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
 }
 
 header.top {
@@ -166,7 +182,32 @@ header.top h1 {
 .job-list {
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
   gap: 10px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 2px 7px 12px 2px;
+  scroll-behavior: smooth;
+}
+
+.job-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.job-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.job-list::-webkit-scrollbar-thumb {
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: #c9d9ed;
+}
+
+.job-list::-webkit-scrollbar-thumb:hover {
+  background: #aebfd5;
 }
 
 .reason-box {
@@ -252,11 +293,40 @@ header.top h1 {
 }
 
 .pagination {
+  flex: 0 0 auto;
   display: flex;
   justify-content: center;
   gap: 6px;
   margin-top: 20px;
   flex-wrap: wrap;
+}
+
+@media (max-height: 720px) {
+  .wrap {
+    padding-top: 14px;
+    padding-bottom: 10px;
+  }
+
+  header.top {
+    margin-bottom: 10px;
+  }
+
+  .auth-bar,
+  .tabs {
+    margin-bottom: 9px;
+  }
+
+  .filters {
+    margin-bottom: 10px;
+  }
+
+  .chip-row {
+    margin-bottom: 10px;
+  }
+
+  .pagination {
+    margin-top: 10px;
+  }
 }
 
 .page-btn {

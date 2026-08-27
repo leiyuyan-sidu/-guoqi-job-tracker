@@ -32,6 +32,7 @@ const tabPendingCountEl = document.getElementById("tab-pending-count");
 const tabResolvedCountEl = document.getElementById("tab-resolved-count");
 const chipRowEl = document.getElementById("bucket-chips");
 const paginationEl = document.getElementById("pagination");
+const dashboardControlsEl = document.querySelector(".dashboard-controls");
 
 const PAGE_SIZE = 10;
 
@@ -628,6 +629,13 @@ searchEl.addEventListener("input", () => {
   currentPage = 1;
   renderJobs();
 });
+
+// 在固定控制区域使用鼠标滚轮时，也滚动岗位列表，保持整页操作自然。
+dashboardControlsEl.addEventListener("wheel", (event) => {
+  if (!event.deltaY) return;
+  jobListEl.scrollTop += event.deltaY;
+  event.preventDefault();
+}, { passive: false });
 
 for (const btn of [tabPendingBtn, tabResolvedBtn]) {
   btn.addEventListener("click", () => {
