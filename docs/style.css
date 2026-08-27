@@ -282,6 +282,30 @@ header.top h1 {
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 16px 20px;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.job-card.slide-out-left {
+  pointer-events: none;
+  animation: slide-out-left 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+}
+
+@keyframes slide-out-left {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(-110%);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .job-card.slide-out-left {
+    animation: none;
+  }
 }
 
 .job-card.not-interested {

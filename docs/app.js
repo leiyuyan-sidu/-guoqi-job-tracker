@@ -337,6 +337,7 @@ function renderCard(job) {
   const card = document.createElement("div");
   const notInterested = !!job.interest_tag;
   card.className = "job-card" + (notInterested ? " not-interested" : "");
+  card.dataset.jobId = job.id;
 
   card.innerHTML = `
     <div class="job-card-top">
@@ -469,16 +470,38 @@ document.getElementById("skip-cancel").addEventListener("click", () => {
 
 async function setStatus(job, newStatus, note) {
   if (!session) return;
+  const card = [...jobListEl.querySelectorAll(".job-card")].find(
+    (element) => element.dataset.jobId === job.id
+  );
+  const actionButtons = card ? [...card.querySelectorAll("button")] : [];
+  actionButtons.forEach((button) => { button.disabled = true; });
+
   const payload = { status: newStatus, status_note: note ?? null };
   const { error } = await supabase.from("jobs").update(payload).eq("id", job.id);
   if (error) {
+    actionButtons.forEach((button) => { button.disabled = false; });
     alert("更新失败：" + error.message);
     return;
   }
   job.status = newStatus;
   job.status_note = payload.status_note;
   updateStats();
+
+  if (card && currentTab === "pending" && newStatus !== "pending") {
+    await animateCardOut(card);
+  }
   renderJobs();
+}
+
+function animateCardOut(card) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    card.classList.add("slide-out-left");
+    card.addEventListener("animationend", resolve, { once: true });
+    window.setTimeout(resolve, 500);
+  });
 }
 
 function escapeHtml(str) {
