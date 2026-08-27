@@ -52,12 +52,12 @@ const STATUS_LABELS = {
 };
 
 const DEADLINE_BUCKETS = [
-  { key: "expired", label: "已截止" },
   { key: "week1", label: "一周内截止" },
   { key: "week2", label: "两周内截止" },
   { key: "month1", label: "一个月内截止" },
   { key: "monthplus", label: "一个月以上" },
   { key: "none", label: "未注明截止日期" },
+  { key: "expired", label: "已截止" },
 ];
 
 const RESOLVED_GROUPS = [
