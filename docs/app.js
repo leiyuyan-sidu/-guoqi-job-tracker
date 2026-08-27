@@ -488,9 +488,50 @@ async function setStatus(job, newStatus, note) {
   updateStats();
 
   if (card && currentTab === "pending" && newStatus !== "pending") {
+    const previousPositions = captureCardPositions(card.dataset.jobId);
     await animateCardOut(card);
+    renderJobs();
+    animateCardsIntoPlace(previousPositions);
+    return;
   }
   renderJobs();
+}
+
+function captureCardPositions(excludedJobId) {
+  const positions = new Map();
+  for (const element of jobListEl.querySelectorAll(".job-card")) {
+    if (element.dataset.jobId !== excludedJobId) {
+      positions.set(element.dataset.jobId, element.getBoundingClientRect());
+    }
+  }
+  return positions;
+}
+
+function animateCardsIntoPlace(previousPositions) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+
+  for (const element of jobListEl.querySelectorAll(".job-card")) {
+    const previousRect = previousPositions.get(element.dataset.jobId);
+    if (!previousRect) continue;
+
+    const currentRect = element.getBoundingClientRect();
+    const offsetY = previousRect.top - currentRect.top;
+    if (Math.abs(offsetY) < 1) continue;
+
+    element.animate(
+      [
+        { transform: `translateY(${offsetY}px)` },
+        { transform: "translateY(-5px)", offset: 0.76 },
+        { transform: "translateY(2px)", offset: 0.9 },
+        { transform: "translateY(0)" }
+      ],
+      {
+        duration: 480,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+        fill: "both"
+      }
+    );
+  }
 }
 
 function animateCardOut(card) {

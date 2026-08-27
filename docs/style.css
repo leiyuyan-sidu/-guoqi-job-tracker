@@ -287,7 +287,7 @@ header.top h1 {
 
 .job-card.fade-out-right-to-left {
   pointer-events: none;
-  animation: fade-out-right-to-left 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-out-right-to-left 420ms cubic-bezier(0.32, 0, 0.2, 1) forwards;
 }
 
 @keyframes fade-out-right-to-left {
