@@ -476,13 +476,14 @@ async function setStatus(job, newStatus, note) {
   const actionButtons = card ? [...card.querySelectorAll("button")] : [];
   actionButtons.forEach((button) => { button.disabled = true; });
 
+  const previousStatus = job.status;
+  const previousNote = job.status_note;
   const payload = { status: newStatus, status_note: note ?? null };
-  const { error } = await supabase.from("jobs").update(payload).eq("id", job.id);
-  if (error) {
-    actionButtons.forEach((button) => { button.disabled = false; });
-    alert("更新失败：" + error.message);
-    return;
-  }
+  const updateRequest = Promise.resolve(
+    supabase.from("jobs").update(payload).eq("id", job.id)
+  );
+
+  // 先立即更新界面，数据库保存放到后台进行，避免网络延迟阻塞动画。
   job.status = newStatus;
   job.status_note = payload.status_note;
   updateStats();
@@ -492,9 +493,19 @@ async function setStatus(job, newStatus, note) {
     await animateCardOut(card);
     renderJobs();
     animateCardsIntoPlace(previousPositions);
-    return;
+  } else {
+    renderJobs();
   }
+
+  const { error } = await updateRequest;
+  if (!error) return;
+
+  // 保存失败时撤销本地状态，让岗位重新出现，避免界面与数据库不一致。
+  job.status = previousStatus;
+  job.status_note = previousNote;
+  updateStats();
   renderJobs();
+  alert("更新失败，岗位已恢复：" + error.message);
 }
 
 function captureCardPositions(excludedJobId) {
