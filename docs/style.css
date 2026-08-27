@@ -282,28 +282,27 @@ header.top h1 {
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
   padding: 16px 20px;
-  transform-origin: center;
-  will-change: transform, opacity;
+  will-change: clip-path, opacity;
 }
 
-.job-card.slide-out-left {
+.job-card.fade-out-right-to-left {
   pointer-events: none;
-  animation: slide-out-left 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  animation: fade-out-right-to-left 380ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-@keyframes slide-out-left {
+@keyframes fade-out-right-to-left {
   from {
-    transform: translateX(0);
+    clip-path: inset(0 0 0 0);
     opacity: 1;
   }
   to {
-    transform: translateX(-110%);
+    clip-path: inset(0 100% 0 0);
     opacity: 0;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .job-card.slide-out-left {
+  .job-card.fade-out-right-to-left {
     animation: none;
   }
 }

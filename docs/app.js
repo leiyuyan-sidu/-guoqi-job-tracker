@@ -498,7 +498,7 @@ function animateCardOut(card) {
     return Promise.resolve();
   }
   return new Promise((resolve) => {
-    card.classList.add("slide-out-left");
+    card.classList.add("fade-out-right-to-left");
     card.addEventListener("animationend", resolve, { once: true });
     window.setTimeout(resolve, 500);
   });
