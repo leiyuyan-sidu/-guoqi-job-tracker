@@ -22,12 +22,6 @@
   box-sizing: border-box;
 }
 
-html,
-body {
-  height: 100%;
-  overflow: hidden;
-}
-
 body {
   margin: 0;
   font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -37,19 +31,22 @@ body {
 }
 
 .wrap {
-  display: flex;
-  flex-direction: column;
   width: 100%;
-  height: 100dvh;
   max-width: 900px;
   margin: 0 auto;
-  padding: 28px 20px 16px;
+  padding: 24px 20px 64px;
 }
 
-.dashboard-controls {
-  position: relative;
-  z-index: 2;
-  flex: 0 0 auto;
+.sticky-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  margin: 0 -10px;
+  padding: 10px 10px 2px;
+  border-bottom: 1px solid rgba(220, 231, 245, 0.88);
+  background: rgba(244, 248, 253, 0.92);
+  box-shadow: 0 8px 18px rgba(55, 94, 145, 0.05);
+  backdrop-filter: blur(12px);
 }
 
 header.top {
@@ -143,6 +140,7 @@ header.top h1 {
   font-size: 13px;
   color: var(--text-secondary);
   cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
 
 .tab-btn.active {
@@ -168,6 +166,7 @@ header.top h1 {
   background: var(--surface);
   color: var(--text);
   font-family: inherit;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
 }
 
 .filters input[type="date"] {
@@ -182,32 +181,8 @@ header.top h1 {
 .job-list {
   display: flex;
   flex-direction: column;
-  flex: 1 1 auto;
-  min-height: 0;
   gap: 10px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding: 2px 7px 12px 2px;
-  scroll-behavior: smooth;
-}
-
-.job-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.job-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.job-list::-webkit-scrollbar-thumb {
-  border: 2px solid var(--bg);
-  border-radius: 999px;
-  background: #c9d9ed;
-}
-
-.job-list::-webkit-scrollbar-thumb:hover {
-  background: #aebfd5;
+  padding: 2px;
 }
 
 .reason-box {
@@ -283,6 +258,7 @@ header.top h1 {
   font-size: 12px;
   color: var(--text-secondary);
   cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
 
 .chip.active {
@@ -293,40 +269,11 @@ header.top h1 {
 }
 
 .pagination {
-  flex: 0 0 auto;
   display: flex;
   justify-content: center;
   gap: 6px;
   margin-top: 20px;
   flex-wrap: wrap;
-}
-
-@media (max-height: 720px) {
-  .wrap {
-    padding-top: 14px;
-    padding-bottom: 10px;
-  }
-
-  header.top {
-    margin-bottom: 10px;
-  }
-
-  .auth-bar,
-  .tabs {
-    margin-bottom: 9px;
-  }
-
-  .filters {
-    margin-bottom: 10px;
-  }
-
-  .chip-row {
-    margin-bottom: 10px;
-  }
-
-  .pagination {
-    margin-top: 10px;
-  }
 }
 
 .page-btn {
@@ -338,6 +285,7 @@ header.top h1 {
   color: var(--text-secondary);
   font-size: 13px;
   cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease;
 }
 
 .page-btn.active {
@@ -351,8 +299,18 @@ header.top h1 {
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius);
-  padding: 16px 20px;
+  padding: 13px 17px;
   will-change: clip-path, opacity;
+  transition: background-color 180ms ease, border-color 180ms ease, box-shadow 180ms ease, transform 180ms ease;
+}
+
+.job-list.list-enter {
+  animation: list-enter 180ms ease-out both;
+}
+
+@keyframes list-enter {
+  from { opacity: 0.35; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .loading-heading {
@@ -439,6 +397,10 @@ header.top h1 {
   .loading-dot {
     animation: none;
   }
+
+  .job-list.list-enter {
+    animation: none;
+  }
 }
 
 .job-card.not-interested {
@@ -523,6 +485,65 @@ header.top h1 {
   align-items: center;
   justify-content: center;
   color: var(--text-muted);
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, transform 120ms ease, box-shadow 160ms ease;
+}
+
+.icon-btn:active,
+.chip:active,
+.page-btn:active,
+.tab-btn:active {
+  transform: scale(0.96);
+}
+
+.icon-btn:focus-visible,
+.chip:focus-visible,
+.page-btn:focus-visible,
+.tab-btn:focus-visible,
+.filters input:focus-visible,
+.filters select:focus-visible {
+  outline: 2px solid rgba(59, 130, 246, 0.42);
+  outline-offset: 2px;
+}
+
+@media (hover: hover) {
+  .job-card:hover {
+    border-color: #b9d3f5;
+    border-left-color: #2563eb;
+    background: #fbfdff;
+    box-shadow: 0 8px 22px rgba(52, 101, 164, 0.1);
+    transform: translateY(-2px);
+  }
+
+  .chip:hover,
+  .page-btn:hover,
+  .tab-btn:not(.active):hover {
+    border-color: #a9c9f5;
+    background: var(--accent-bg);
+    color: var(--accent-dark);
+  }
+
+  .filters select:hover,
+  .filters input:hover {
+    border-color: #aac9f1;
+    background: #fbfdff;
+  }
+
+  .icon-btn:not(:disabled):hover {
+    transform: scale(1.06);
+    box-shadow: 0 4px 10px rgba(41, 72, 112, 0.1);
+  }
+
+  .icon-btn.check:not(:disabled):hover {
+    border-color: var(--success);
+    background: var(--success-bg);
+    color: var(--success);
+  }
+
+  .icon-btn.cross:not(:disabled):hover {
+    border-color: var(--danger);
+    background: var(--danger-bg);
+    color: var(--danger);
+  }
 }
 
 .icon-btn:disabled {

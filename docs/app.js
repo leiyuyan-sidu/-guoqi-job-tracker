@@ -32,7 +32,7 @@ const tabPendingCountEl = document.getElementById("tab-pending-count");
 const tabResolvedCountEl = document.getElementById("tab-resolved-count");
 const chipRowEl = document.getElementById("bucket-chips");
 const paginationEl = document.getElementById("pagination");
-const dashboardControlsEl = document.querySelector(".dashboard-controls");
+const stickyToolbarEl = document.querySelector(".sticky-toolbar");
 
 const PAGE_SIZE = 10;
 
@@ -47,6 +47,7 @@ let pendingBucket = "all";
 let resolvedGroup = "all";
 let currentPage = 1;
 let expandedReasons = new Set();
+let listNeedsEntranceAnimation = true;
 
 const STATUS_LABELS = {
   applied: "已投递",
@@ -233,6 +234,7 @@ function renderBucketChips(baseFiltered) {
       else resolvedGroup = opt.key;
       currentPage = 1;
       expandedReasons.clear();
+      listNeedsEntranceAnimation = true;
       renderJobs();
     });
     chipRowEl.appendChild(btn);
@@ -248,7 +250,9 @@ function renderPagination(totalPages) {
     btn.textContent = String(p);
     btn.addEventListener("click", () => {
       currentPage = p;
+      listNeedsEntranceAnimation = true;
       renderJobs();
+      scrollToListStart();
     });
     paginationEl.appendChild(btn);
   }
@@ -329,7 +333,19 @@ function renderJobs() {
     jobListEl.appendChild(currentTab === "pending" ? renderCard(job) : renderResolvedCard(job));
   }
 
+  if (listNeedsEntranceAnimation) {
+    jobListEl.classList.remove("list-enter");
+    void jobListEl.offsetWidth;
+    jobListEl.classList.add("list-enter");
+    listNeedsEntranceAnimation = false;
+  }
+
   renderPagination(totalPages);
+}
+
+function scrollToListStart() {
+  const top = window.scrollY + jobListEl.getBoundingClientRect().top - stickyToolbarEl.offsetHeight - 8;
+  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 }
 
 function renderLoadingSkeleton() {
@@ -619,29 +635,26 @@ function escapeHtml(str) {
 
 sourceFilterEl.addEventListener("change", () => {
   currentPage = 1;
+  listNeedsEntranceAnimation = true;
   renderJobs();
 });
 dateFilterEl.addEventListener("change", () => {
   currentPage = 1;
+  listNeedsEntranceAnimation = true;
   renderJobs();
 });
 searchEl.addEventListener("input", () => {
   currentPage = 1;
+  listNeedsEntranceAnimation = true;
   renderJobs();
 });
-
-// 在固定控制区域使用鼠标滚轮时，也滚动岗位列表，保持整页操作自然。
-dashboardControlsEl.addEventListener("wheel", (event) => {
-  if (!event.deltaY) return;
-  jobListEl.scrollTop += event.deltaY;
-  event.preventDefault();
-}, { passive: false });
 
 for (const btn of [tabPendingBtn, tabResolvedBtn]) {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
     currentPage = 1;
     expandedReasons.clear();
+    listNeedsEntranceAnimation = true;
     tabPendingBtn.classList.toggle("active", currentTab === "pending");
     tabResolvedBtn.classList.toggle("active", currentTab === "resolved");
     renderJobs();
