@@ -236,6 +236,7 @@ function renderBucketChips(baseFiltered) {
       expandedReasons.clear();
       listNeedsEntranceAnimation = true;
       renderJobs();
+      scrollToListStart();
     });
     chipRowEl.appendChild(btn);
   }
@@ -637,11 +638,13 @@ sourceFilterEl.addEventListener("change", () => {
   currentPage = 1;
   listNeedsEntranceAnimation = true;
   renderJobs();
+  scrollToListStart();
 });
 dateFilterEl.addEventListener("change", () => {
   currentPage = 1;
   listNeedsEntranceAnimation = true;
   renderJobs();
+  scrollToListStart();
 });
 searchEl.addEventListener("input", () => {
   currentPage = 1;
@@ -658,6 +661,7 @@ for (const btn of [tabPendingBtn, tabResolvedBtn]) {
     tabPendingBtn.classList.toggle("active", currentTab === "pending");
     tabResolvedBtn.classList.toggle("active", currentTab === "resolved");
     renderJobs();
+    scrollToListStart();
   });
 }
 
