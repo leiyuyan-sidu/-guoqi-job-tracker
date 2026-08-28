@@ -39,13 +39,14 @@ body {
 
 .sticky-toolbar {
   position: sticky;
-  top: 0;
+  top: 8px;
   z-index: 10;
-  margin: 0 -10px;
-  padding: 10px 10px 2px;
-  border-bottom: 1px solid rgba(220, 231, 245, 0.88);
-  background: rgba(244, 248, 253, 0.92);
-  box-shadow: 0 8px 18px rgba(55, 94, 145, 0.05);
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(210, 224, 242, 0.94);
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 8px 24px rgba(55, 94, 145, 0.08);
   backdrop-filter: blur(12px);
 }
 
@@ -129,7 +130,7 @@ header.top h1 {
 .tabs {
   display: flex;
   gap: 8px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .tab-btn {
@@ -153,7 +154,7 @@ header.top h1 {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 20px;
+  margin-bottom: 14px;
 }
 
 .filters select,
@@ -247,7 +248,7 @@ header.top h1 {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
-  margin-bottom: 18px;
+  margin-bottom: 0;
 }
 
 .chip {
