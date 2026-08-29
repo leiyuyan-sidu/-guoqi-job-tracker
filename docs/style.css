@@ -25,16 +25,82 @@
 body {
   margin: 0;
   font-family: -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  background: var(--bg);
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(circle at 8% 9%, rgba(96, 165, 250, 0.18) 0, rgba(96, 165, 250, 0.07) 18%, transparent 36%),
+    radial-gradient(circle at 91% 7%, rgba(167, 139, 250, 0.11) 0, rgba(167, 139, 250, 0.04) 20%, transparent 35%),
+    radial-gradient(circle at 58% 68%, rgba(255, 255, 255, 0.82) 0, rgba(255, 255, 255, 0.35) 28%, transparent 54%),
+    linear-gradient(155deg, #f1f7ff 0%, #f7faff 48%, #edf5fd 100%);
+  background-attachment: fixed;
   color: var(--text);
   line-height: 1.5;
+  position: relative;
+  isolation: isolate;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    repeating-linear-gradient(17deg, rgba(89, 117, 151, 0.018) 0 1px, transparent 1px 13px),
+    repeating-linear-gradient(102deg, rgba(255, 255, 255, 0.18) 0 1px, transparent 1px 17px);
+  background-size: 150px 110px, 125px 145px;
+  opacity: 0.72;
+}
+
+.background-art {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.background-art svg {
+  width: 100%;
+  height: 100%;
+}
+
+.flight-path {
+  fill: none;
+  stroke: rgba(73, 125, 190, 0.16);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-dasharray: 4 11;
+  vector-effect: non-scaling-stroke;
+}
+
+.flight-node {
+  fill: rgba(255, 255, 255, 0.72);
+  stroke: rgba(73, 125, 190, 0.2);
+  stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
 }
 
 .wrap {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 900px;
   margin: 0 auto;
   padding: 24px 20px 64px;
+}
+
+@media (max-width: 700px) {
+  .flight-path,
+  .flight-node {
+    opacity: 0.48;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 5% 6%, rgba(96, 165, 250, 0.14) 0, transparent 34%),
+      radial-gradient(circle at 94% 8%, rgba(167, 139, 250, 0.08) 0, transparent 32%),
+      linear-gradient(155deg, #f1f7ff 0%, #f7faff 52%, #edf5fd 100%);
+  }
 }
 
 .sticky-toolbar {
