@@ -12,6 +12,7 @@ import time
 import requests
 
 API_URL = "https://gp-api.iguopin.com/api/jobs/v1/recom-job"
+DETAIL_API_URL = "https://gp-api.iguopin.com/api/jobs/v1/info"
 DETAIL_URL_TMPL = "https://www.iguopin.com/job/detail?id={job_id}"
 NATURE_CAMPUS = "115xW5oQ"
 
@@ -59,6 +60,21 @@ def fetch_all_campus_jobs(page_size=50, max_pages=60, sleep_sec=0.4):
         page += 1
         time.sleep(sleep_sec)
     return jobs
+
+
+def fetch_job_detail(job_id):
+    """按岗位 ID 获取详情，供已离开推荐列表的历史岗位补全薪资。"""
+    resp = requests.get(
+        DETAIL_API_URL,
+        headers=HEADERS,
+        params={"id": job_id},
+        timeout=20,
+    )
+    resp.raise_for_status()
+    payload = resp.json()
+    if payload.get("code") != 200 or not payload.get("data"):
+        raise ValueError(payload.get("msg") or "国聘岗位详情不存在")
+    return payload["data"]
 
 
 def detail_url(job_id):

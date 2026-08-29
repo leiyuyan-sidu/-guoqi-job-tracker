@@ -1,4 +1,5 @@
 import sys
+import time
 
 import llm_match
 from db import get_client, upsert_jobs
@@ -153,7 +154,7 @@ def recheck_existing_graduation_year(client):
 
 
 def backfill_guopin_salaries(client, jobs):
-    """数据库完成 salary 列升级后，为已有国聘岗位补充薪资。"""
+    """为已有国聘岗位补薪资；推荐列表缺失时再按岗位 ID 查询详情。"""
     try:
         existing = client.table("jobs").select("raw_key,salary").eq("source", "guopin").execute()
     except Exception:
@@ -167,8 +168,29 @@ def backfill_guopin_salaries(client, jobs):
         salary = format_guopin_salary(job)
         if raw_key in missing_keys and salary:
             client.table("jobs").update({"salary": salary}).eq("raw_key", raw_key).execute()
+            missing_keys.remove(raw_key)
             updated += 1
-    print(f"历史国聘岗位薪资回填完成：更新 {updated} 条")
+
+    # 推荐列表会随排序和岗位状态变化，仍缺失的历史岗位必须走详情接口。
+    detail_updated = 0
+    detail_failed = 0
+    for raw_key in sorted(missing_keys):
+        job_id = raw_key.removeprefix("guopin:")
+        try:
+            detail = guopin.fetch_job_detail(job_id)
+            salary = format_guopin_salary(detail)
+            if salary:
+                client.table("jobs").update({"salary": salary}).eq("raw_key", raw_key).execute()
+                detail_updated += 1
+        except Exception as exc:
+            detail_failed += 1
+            print(f"[薪资补录跳过] guopin job_id={job_id}: {exc}", file=sys.stderr)
+        time.sleep(0.12)
+
+    print(
+        "历史国聘岗位薪资回填完成："
+        f"列表更新 {updated} 条，详情更新 {detail_updated} 条，详情失败 {detail_failed} 条"
+    )
 
 
 def main():
