@@ -160,6 +160,7 @@ document.getElementById("login-cancel").addEventListener("click", () => {
 });
 
 async function loadJobs() {
+  const syncStartedAt = performance.now();
   jobsLoadError = null;
   const hasCachedJobs = restoreJobsCache();
 
@@ -168,6 +169,7 @@ async function loadJobs() {
     populateSourceFilter();
     updateStats();
     renderJobs();
+    showSyncIndicator();
   } else {
     jobsLoading = true;
     renderJobs();
@@ -180,6 +182,7 @@ async function loadJobs() {
     .order("created_at", { ascending: false });
 
   if (error) {
+    finishSyncIndicator(syncStartedAt);
     if (hasCachedJobs) {
       updatedHintEl.textContent += " · 暂时无法更新，当前显示上次缓存";
     } else {
@@ -196,6 +199,26 @@ async function loadJobs() {
   populateSourceFilter();
   updateStats();
   renderJobs();
+  finishSyncIndicator(syncStartedAt);
+}
+
+function showSyncIndicator() {
+  let indicator = document.getElementById("sync-indicator");
+  if (!indicator) {
+    indicator = document.createElement("span");
+    indicator.id = "sync-indicator";
+    indicator.className = "sync-indicator";
+    indicator.innerHTML = `<span class="loading-flight" aria-hidden="true">${paperPlaneSvg()}</span><span>正在同步最新岗位…</span>`;
+    updatedHintEl.insertAdjacentElement("afterend", indicator);
+  }
+  indicator.classList.add("visible");
+}
+
+function finishSyncIndicator(startedAt, minimumMs = 1100) {
+  const indicator = document.getElementById("sync-indicator");
+  if (!indicator) return;
+  const remaining = Math.max(0, minimumMs - (performance.now() - startedAt));
+  window.setTimeout(() => indicator.classList.remove("visible"), remaining);
 }
 
 function restoreJobsCache() {
@@ -633,7 +656,7 @@ async function animateAppliedCardOut(card) {
   }
 
   const planeFlight = animateAppliedPlane(card);
-  await new Promise((resolve) => window.setTimeout(resolve, 90));
+  await new Promise((resolve) => window.setTimeout(resolve, 150));
   await Promise.all([planeFlight, animateCardOut(card)]);
 }
 
@@ -645,18 +668,18 @@ function animateAppliedPlane(card) {
   const plane = document.createElement("span");
   plane.className = "paper-plane-flight";
   plane.innerHTML = paperPlaneSvg();
-  plane.style.left = `${rect.left + rect.width / 2 - 19}px`;
-  plane.style.top = `${rect.top + rect.height / 2 - 14}px`;
+  plane.style.left = `${rect.left + rect.width / 2 - 23}px`;
+  plane.style.top = `${rect.top + rect.height / 2 - 17}px`;
   document.body.appendChild(plane);
 
   const animation = plane.animate(
     [
-      { transform: "translate3d(0, 0, 0) rotate(-7deg) scale(0.92)", opacity: 0 },
-      { transform: "translate3d(12px, -5px, 0) rotate(-12deg) scale(1)", opacity: 1, offset: 0.16 },
-      { transform: "translate3d(38px, -20px, 0) rotate(-7deg) scale(1.03)", opacity: 1, offset: 0.58 },
-      { transform: "translate3d(78px, -48px, 0) rotate(-16deg) scale(0.94)", opacity: 0 }
+      { transform: "translate3d(0, 0, 0) rotate(-7deg) scale(0.9)", opacity: 0 },
+      { transform: "translate3d(14px, -6px, 0) rotate(-12deg) scale(1)", opacity: 1, offset: 0.13 },
+      { transform: "translate3d(50px, -23px, 0) rotate(-7deg) scale(1.06)", opacity: 1, offset: 0.55 },
+      { transform: "translate3d(108px, -64px, 0) rotate(-17deg) scale(0.95)", opacity: 0 }
     ],
-    { duration: 520, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" }
+    { duration: 650, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" }
   );
 
   return new Promise((resolve) => {
@@ -668,7 +691,7 @@ function animateAppliedPlane(card) {
       resolve();
     };
     animation.addEventListener("finish", finish, { once: true });
-    window.setTimeout(finish, 650);
+    window.setTimeout(finish, 780);
   });
 }
 
