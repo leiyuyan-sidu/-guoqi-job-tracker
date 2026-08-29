@@ -35,6 +35,12 @@ const paginationEl = document.getElementById("pagination");
 const stickyToolbarEl = document.querySelector(".sticky-toolbar");
 
 const PAGE_SIZE = 10;
+const JOB_CACHE_KEY = "guoqi-job-tracker:jobs:v1";
+const JOB_FIELDS = [
+  "id", "source", "company", "title", "location", "education",
+  "major_requirement", "eligible_reason", "interest_tag", "posted_at",
+  "deadline", "url", "status", "status_note", "created_at", "updated_at"
+].join(",");
 
 let session = null;
 let allJobs = [];
@@ -154,35 +160,60 @@ document.getElementById("login-cancel").addEventListener("click", () => {
 });
 
 async function loadJobs() {
-  const loadingStartedAt = performance.now();
-  jobsLoading = true;
   jobsLoadError = null;
-  renderJobs();
+  const hasCachedJobs = restoreJobsCache();
+
+  if (hasCachedJobs) {
+    jobsLoading = false;
+    populateSourceFilter();
+    updateStats();
+    renderJobs();
+  } else {
+    jobsLoading = true;
+    renderJobs();
+  }
+
   const { data, error } = await supabase
     .from("jobs")
-    .select("*")
+    .select(JOB_FIELDS)
     .eq("eligible", true)
     .order("created_at", { ascending: false });
 
   if (error) {
-    await keepSkeletonVisible(loadingStartedAt);
-    jobsLoading = false;
-    jobsLoadError = error.message;
-    renderJobs();
+    if (hasCachedJobs) {
+      updatedHintEl.textContent += " · 暂时无法更新，当前显示上次缓存";
+    } else {
+      jobsLoading = false;
+      jobsLoadError = error.message;
+      renderJobs();
+    }
     return;
   }
+
   allJobs = data;
-  await keepSkeletonVisible(loadingStartedAt);
   jobsLoading = false;
+  writeJobsCache();
   populateSourceFilter();
   updateStats();
   renderJobs();
 }
 
-async function keepSkeletonVisible(startedAt, minimumMs = 1200) {
-  const remaining = minimumMs - (performance.now() - startedAt);
-  if (remaining > 0) {
-    await new Promise((resolve) => window.setTimeout(resolve, remaining));
+function restoreJobsCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(JOB_CACHE_KEY));
+    if (!cached || !Array.isArray(cached.jobs)) return false;
+    allJobs = cached.jobs;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function writeJobsCache() {
+  try {
+    localStorage.setItem(JOB_CACHE_KEY, JSON.stringify({ jobs: allJobs, savedAt: Date.now() }));
+  } catch {
+    // 浏览器禁用本地存储或空间不足时，继续使用正常网络加载。
   }
 }
 
@@ -558,6 +589,7 @@ async function setStatus(job, newStatus, note) {
   // 先立即更新界面，数据库保存放到后台进行，避免网络延迟阻塞动画。
   job.status = newStatus;
   job.status_note = payload.status_note;
+  writeJobsCache();
   updateStats();
 
   if (card && currentTab === "pending" && newStatus !== "pending") {
@@ -575,6 +607,7 @@ async function setStatus(job, newStatus, note) {
   // 保存失败时撤销本地状态，让岗位重新出现，避免界面与数据库不一致。
   job.status = previousStatus;
   job.status_note = previousNote;
+  writeJobsCache();
   updateStats();
   renderJobs();
   alert("更新失败，岗位已恢复：" + error.message);
