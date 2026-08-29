@@ -98,6 +98,15 @@ function deadlineBucket(deadline) {
   return "monthplus";
 }
 
+function deadlineTone(deadline) {
+  if (!deadline) return "";
+  const diffDays = (new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24);
+  if (diffDays < 0) return "expired";
+  if (diffDays <= 7) return "urgent";
+  if (diffDays <= 14) return "soon";
+  return "";
+}
+
 function fmtDate(d) {
   if (!d) return "";
   return new Date(d).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
@@ -492,8 +501,11 @@ function renderCard(job) {
           ${isToday(job.created_at) ? '<span class="badge new">今日新增</span>' : ""}
         </div>
         <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
-        <p class="job-major">专业要求：${escapeHtml(job.major_requirement || "详见职位描述")}${job.education ? "（" + escapeHtml(job.education) + "）" : ""}</p>
-        ${job.eligible_reason ? `<p class="reason">${escapeHtml(job.eligible_reason)}</p>` : ""}
+        <div class="job-meta-row">
+          ${job.education ? `<span class="meta-chip">学历 · ${escapeHtml(job.education)}</span>` : ""}
+          <span class="meta-chip meta-major">专业 · ${escapeHtml(job.major_requirement || "详见职位描述")}</span>
+        </div>
+        ${job.eligible_reason ? `<p class="reason match-reason">匹配 · ${escapeHtml(job.eligible_reason)}</p>` : ""}
       </div>
       <div class="job-actions">
         <button class="icon-btn check" title="标记已投递" ${session ? "" : "disabled"}>✓</button>
@@ -503,7 +515,7 @@ function renderCard(job) {
     </div>
     <div class="job-card-bottom">
       <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
-      <span class="status-hint">${job.deadline ? "截止 " + fmtDate(job.deadline) : ""}</span>
+      <span class="status-hint deadline ${deadlineTone(job.deadline)}">${job.deadline ? "截止 " + fmtDate(job.deadline) : "未注明截止日期"}</span>
     </div>
   `;
 
@@ -527,6 +539,10 @@ function renderResolvedCard(job) {
           <span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span>
         </div>
         <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
+        <div class="job-meta-row">
+          ${job.education ? `<span class="meta-chip">学历 · ${escapeHtml(job.education)}</span>` : ""}
+          <span class="meta-chip meta-major">专业 · ${escapeHtml(job.major_requirement || "详见职位描述")}</span>
+        </div>
         ${job.status_note ? `<p class="reason">原因：${escapeHtml(job.status_note)}</p>` : ""}
       </div>
       <div class="job-actions">
