@@ -636,7 +636,7 @@ header.top h1 {
 .salary-tag {
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
+  margin-left: 0;
   padding: 1px 7px;
   border: 1px solid rgba(120, 171, 221, 0.28);
   border-radius: 999px;

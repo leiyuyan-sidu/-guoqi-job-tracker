@@ -487,11 +487,11 @@ function renderCard(job) {
       <div class="job-card-main">
         <div class="job-card-title-row">
           <span class="company">${escapeHtml(job.company)}</span>
-          <span class="badge eligible">可报名</span>
+          <span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span>
           ${notInterested ? '<span class="badge not-interested">不感兴趣</span>' : ""}
           ${isToday(job.created_at) ? '<span class="badge new">今日新增</span>' : ""}
         </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}<span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span></p>
+        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
         <p class="job-major">专业要求：${escapeHtml(job.major_requirement || "详见职位描述")}${job.education ? "（" + escapeHtml(job.education) + "）" : ""}</p>
         ${job.eligible_reason ? `<p class="reason">${escapeHtml(job.eligible_reason)}</p>` : ""}
       </div>
@@ -524,8 +524,9 @@ function renderResolvedCard(job) {
         <div class="job-card-title-row">
           <span class="company">${escapeHtml(job.company)}</span>
           <span class="badge status-${job.status}">${STATUS_LABELS[job.status] || job.status}</span>
+          <span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span>
         </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}<span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span></p>
+        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
         ${job.status_note ? `<p class="reason">原因：${escapeHtml(job.status_note)}</p>` : ""}
       </div>
       <div class="job-actions">
