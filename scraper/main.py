@@ -7,6 +7,22 @@ from match import check_disliked, check_graduation_year, is_blue_collar, rule_ba
 from sources import eximbank, guopin, sasac
 
 
+def format_guopin_salary(job):
+    """把国聘的结构化薪资转为适合前端展示的中文文本。"""
+    if job.get("is_negotiable"):
+        return "面议"
+    minimum = int(job.get("min_wage") or 0)
+    maximum = int(job.get("max_wage") or 0)
+    unit = (job.get("wage_unit_cn") or "元/月").strip()
+    if minimum and maximum:
+        return f"{minimum:,}–{maximum:,} {unit}"
+    if minimum:
+        return f"{minimum:,} {unit}起"
+    if maximum:
+        return f"最高{maximum:,} {unit}"
+    return None
+
+
 def build_row_guopin(job):
     major_cn = job.get("major_cn") or []
     contents = job.get("contents") or ""
@@ -38,6 +54,7 @@ def build_row_guopin(job):
         "company": job.get("company_name"),
         "title": job.get("job_name"),
         "location": locations,
+        "salary": format_guopin_salary(job),
         "education": job.get("education_cn"),
         "major_requirement": "、".join(major_cn),
         "description": contents,
@@ -61,6 +78,7 @@ def build_row_freeform(source, item, fetch_detail_fn):
             "company": "详见公告",
             "title": title,
             "location": None,
+            "salary": None,
             "education": None,
             "major_requirement": None,
             "description": None,
@@ -91,6 +109,7 @@ def build_row_freeform(source, item, fetch_detail_fn):
         "company": data["company"],
         "title": title,
         "location": None,
+        "salary": data["salary"],
         "education": data["education"],
         "major_requirement": data["major_requirement"],
         "description": contents or "（公告为招聘海报图片，以上信息由 AI 识别图片内容提取，建议点开原文核实）",
@@ -133,6 +152,25 @@ def recheck_existing_graduation_year(client):
     print(f"历史岗位届别复核完成：排除 {excluded} 条不面向{PROFILE['graduation_year']}届的岗位")
 
 
+def backfill_guopin_salaries(client, jobs):
+    """数据库完成 salary 列升级后，为已有国聘岗位补充薪资。"""
+    try:
+        existing = client.table("jobs").select("raw_key,salary").eq("source", "guopin").execute()
+    except Exception:
+        print("数据库尚未增加 salary 列，暂时跳过历史薪资回填")
+        return
+
+    missing_keys = {row["raw_key"] for row in existing.data if not row.get("salary")}
+    updated = 0
+    for job in jobs:
+        raw_key = f"guopin:{job['job_id']}"
+        salary = format_guopin_salary(job)
+        if raw_key in missing_keys and salary:
+            client.table("jobs").update({"salary": salary}).eq("raw_key", raw_key).execute()
+            updated += 1
+    print(f"历史国聘岗位薪资回填完成：更新 {updated} 条")
+
+
 def main():
     client = get_client()
 
@@ -147,6 +185,7 @@ def main():
 
     print("抓取国聘校招岗位…")
     jobs = guopin.fetch_all_campus_jobs()
+    backfill_guopin_salaries(client, jobs)
     new_jobs = [j for j in jobs if f"guopin:{j['job_id']}" not in seen_keys]
     print(f"共抓到 {len(jobs)} 条，其中新岗位 {len(new_jobs)} 条，开始逐条判断是否符合报名条件…")
     for i, job in enumerate(new_jobs, 1):

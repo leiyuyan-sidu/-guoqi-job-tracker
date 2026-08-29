@@ -633,6 +633,21 @@ header.top h1 {
   color: var(--text-secondary);
 }
 
+.salary-tag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 8px;
+  padding: 1px 7px;
+  border: 1px solid rgba(120, 171, 221, 0.28);
+  border-radius: 999px;
+  background: rgba(232, 244, 255, 0.72);
+  color: #3974ad;
+  font-size: 11px;
+  line-height: 1.55;
+  vertical-align: 1px;
+  white-space: nowrap;
+}
+
 .job-major {
   margin: 0;
   font-size: 13px;

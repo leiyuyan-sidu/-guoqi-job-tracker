@@ -200,6 +200,20 @@ async function loadJobs() {
   updateStats();
   renderJobs();
   finishSyncIndicator(syncStartedAt);
+  loadSalaries();
+}
+
+async function loadSalaries() {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select("id,salary")
+    .eq("eligible", true);
+  if (error || !data) return;
+
+  const salaries = new Map(data.map((row) => [row.id, row.salary]));
+  for (const job of allJobs) job.salary = salaries.get(job.id) || null;
+  writeJobsCache();
+  renderJobs();
 }
 
 function showSyncIndicator() {
@@ -477,7 +491,7 @@ function renderCard(job) {
           ${notInterested ? '<span class="badge not-interested">不感兴趣</span>' : ""}
           ${isToday(job.created_at) ? '<span class="badge new">今日新增</span>' : ""}
         </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
+        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}<span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span></p>
         <p class="job-major">专业要求：${escapeHtml(job.major_requirement || "详见职位描述")}${job.education ? "（" + escapeHtml(job.education) + "）" : ""}</p>
         ${job.eligible_reason ? `<p class="reason">${escapeHtml(job.eligible_reason)}</p>` : ""}
       </div>
@@ -511,7 +525,7 @@ function renderResolvedCard(job) {
           <span class="company">${escapeHtml(job.company)}</span>
           <span class="badge status-${job.status}">${STATUS_LABELS[job.status] || job.status}</span>
         </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
+        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}<span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span></p>
         ${job.status_note ? `<p class="reason">原因：${escapeHtml(job.status_note)}</p>` : ""}
       </div>
       <div class="job-actions">

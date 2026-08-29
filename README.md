@@ -26,6 +26,14 @@
 
 复制 `docs/config.example.js` 为 `docs/config.js`，把上一步的 Project URL 和 anon public key 填进去。`config.js` 可以直接提交到仓库——anon key 设计上就是给前端公开用的，真正的权限控制在 Supabase 的 RLS 规则里（未登录只能读，登录之后才能改投递状态）。
 
+如果项目是在加入薪资功能之前创建的，需要在 Supabase SQL Editor 额外执行一次：
+
+```sql
+alter table jobs add column if not exists salary text;
+```
+
+执行后再次运行每日抓取任务，已有国聘岗位会自动回填可获得的薪资信息。
+
 ### 3. 配置 GitHub Secrets（抓取脚本要用）
 
 仓库 Settings → Secrets and variables → Actions → New repository secret，依次添加：

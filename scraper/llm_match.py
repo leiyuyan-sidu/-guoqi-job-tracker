@@ -110,10 +110,10 @@ FREEFORM_PROMPT_TEMPLATE = """你在帮一名应届毕业生判断某国企/央�
    a. 专业要求覆盖"经济管理类/商科/文科类不限专业"等宽泛表述，或明确包含国际商务、国际贸易相关专业，即算符合
    b. 只要不是要求某个和商科完全无关的理工科/医科专业独占，就倾向认为符合
    c. 语言类要求（如英语四级/六级）应聘人已经满足
-5. 从正文里提取：招聘单位名称（company）、学历要求概括（education，找不到填"详见公告"）、专业要求概括（major_requirement，找不到填"详见公告"）
+5. 从正文里提取：招聘单位名称（company）、学历要求概括（education，找不到填"详见公告"）、专业要求概括（major_requirement，找不到填"详见公告"）、薪资待遇（salary，按公告原文概括，找不到填"未注明"）
 
 请只输出一个 JSON 对象，不要输出其他任何文字，格式为：
-{{"is_campus": true 或 false, "target_cohort": true 或 false, "eligible": true 或 false, "reason": "一句话中文理由", "company": "招聘单位名称", "education": "学历要求概括", "major_requirement": "专业要求概括"}}
+{{"is_campus": true 或 false, "target_cohort": true 或 false, "eligible": true 或 false, "reason": "一句话中文理由", "company": "招聘单位名称", "education": "学历要求概括", "major_requirement": "专业要求概括", "salary": "薪资待遇或未注明"}}
 """
 
 
@@ -162,4 +162,5 @@ def classify_freeform(title, contents, image_url=None):
         "company": str(data.get("company") or "详见公告"),
         "education": str(data.get("education") or "详见公告"),
         "major_requirement": str(data.get("major_requirement") or "详见公告"),
+        "salary": None if str(data.get("salary") or "未注明") == "未注明" else str(data.get("salary")),
     }

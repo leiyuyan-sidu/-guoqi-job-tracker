@@ -7,6 +7,7 @@ create table if not exists jobs (
   company text not null,
   title text not null,
   location text,
+  salary text,
   education text,
   major_requirement text,
   description text,
@@ -21,6 +22,9 @@ create table if not exists jobs (
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- 兼容已经创建过 jobs 表的项目
+alter table jobs add column if not exists salary text;
 
 create index if not exists idx_jobs_eligible_created on jobs (eligible, created_at desc);
 create index if not exists idx_jobs_status on jobs (status);
