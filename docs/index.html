@@ -9,6 +9,13 @@
 <body>
 <div class="background-art" aria-hidden="true">
   <svg viewBox="0 0 1440 900" preserveAspectRatio="none">
+    <defs>
+      <pattern id="paper-fibers" width="180" height="120" patternUnits="userSpaceOnUse">
+        <path class="fiber-blue" d="M12 18l17-3M61 9l9 2M112 24l22-5M154 15l11 1M34 54l12-4M86 43l19 3M142 62l25-2M7 91l14 2M53 104l24-6M104 86l11 3M148 110l18-5" />
+        <path class="fiber-white" d="M25 34l8 4M74 27l15-6M126 43l8 5M163 39l10-3M17 72l18-1M66 69l10 5M112 67l16-4M158 84l14 3M37 115l10-5M91 108l17 2M132 98l9-4" />
+      </pattern>
+    </defs>
+    <rect class="paper-fiber-layer" width="1440" height="900" fill="url(#paper-fibers)" />
     <path class="flight-path" d="M-70 790 C120 735 55 590 180 520 C335 432 292 280 455 218 C650 143 827 250 995 157 C1140 77 1265 122 1510 18" />
     <circle class="flight-node node-one" cx="180" cy="520" r="4" />
     <circle class="flight-node node-two" cx="995" cy="157" r="4" />
