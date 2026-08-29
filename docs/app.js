@@ -385,7 +385,10 @@ function renderLoadingSkeleton() {
   chipRowEl.innerHTML = "";
   paginationEl.innerHTML = "";
   jobListEl.innerHTML = `
-    <div class="loading-heading"><span class="loading-dot"></span>正在加载最新岗位信息…</div>
+    <div class="loading-heading">
+      <span class="loading-flight" aria-hidden="true">${paperPlaneSvg()}</span>
+      正在加载最新岗位信息…
+    </div>
     ${[0, 1, 2].map((index) => `
       <div class="skeleton-card" aria-hidden="true">
         <i class="skeleton-line title${index === 1 ? " short" : ""}"></i>
@@ -594,7 +597,8 @@ async function setStatus(job, newStatus, note) {
 
   if (card && currentTab === "pending" && newStatus !== "pending") {
     const previousPositions = captureCardPositions(card.dataset.jobId);
-    await animateCardOut(card);
+    if (newStatus === "applied") await animateAppliedCardOut(card);
+    else await animateCardOut(card);
     renderJobs();
     animateCardsIntoPlace(previousPositions);
   } else {
@@ -611,6 +615,61 @@ async function setStatus(job, newStatus, note) {
   updateStats();
   renderJobs();
   alert("更新失败，岗位已恢复：" + error.message);
+}
+
+function paperPlaneSvg() {
+  return `
+    <svg class="paper-plane-svg" viewBox="0 0 40 28" aria-hidden="true">
+      <path class="paper-under" d="M3 14 38 3 27 26 19 18 12 23 13.5 16Z" />
+      <path class="paper-face" d="M2 12 37 2 25 24 18 16 10 21 12 14Z" />
+      <path class="paper-fold" d="M12 14 37 2 18 16M18 16 25 24" />
+    </svg>`;
+}
+
+async function animateAppliedCardOut(card) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    await animateCardOut(card);
+    return;
+  }
+
+  const planeFlight = animateAppliedPlane(card);
+  await new Promise((resolve) => window.setTimeout(resolve, 90));
+  await Promise.all([planeFlight, animateCardOut(card)]);
+}
+
+function animateAppliedPlane(card) {
+  const button = card.querySelector(".icon-btn.check");
+  if (!button) return Promise.resolve();
+
+  const rect = button.getBoundingClientRect();
+  const plane = document.createElement("span");
+  plane.className = "paper-plane-flight";
+  plane.innerHTML = paperPlaneSvg();
+  plane.style.left = `${rect.left + rect.width / 2 - 19}px`;
+  plane.style.top = `${rect.top + rect.height / 2 - 14}px`;
+  document.body.appendChild(plane);
+
+  const animation = plane.animate(
+    [
+      { transform: "translate3d(0, 0, 0) rotate(-7deg) scale(0.92)", opacity: 0 },
+      { transform: "translate3d(12px, -5px, 0) rotate(-12deg) scale(1)", opacity: 1, offset: 0.16 },
+      { transform: "translate3d(38px, -20px, 0) rotate(-7deg) scale(1.03)", opacity: 1, offset: 0.58 },
+      { transform: "translate3d(78px, -48px, 0) rotate(-16deg) scale(0.94)", opacity: 0 }
+    ],
+    { duration: 520, easing: "cubic-bezier(0.22, 1, 0.36, 1)", fill: "forwards" }
+  );
+
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      plane.remove();
+      resolve();
+    };
+    animation.addEventListener("finish", finish, { once: true });
+    window.setTimeout(finish, 650);
+  });
 }
 
 function captureCardPositions(excludedJobId) {
