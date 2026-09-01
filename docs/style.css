@@ -440,6 +440,19 @@ header.top h1 {
   font-weight: 600;
 }
 
+/* 已截止不进默认列表，用虚线边框把它和其他截止分桶区分开 */
+.chip-expired {
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.chip-expired.active {
+  background: #eef1f6;
+  border-color: #b6c3d2;
+  border-style: solid;
+  color: var(--text-secondary);
+}
+
 .pagination {
   display: flex;
   justify-content: center;
@@ -653,8 +666,13 @@ header.top h1 {
   opacity: 0.65;
 }
 
+.job-card.expired {
+  opacity: 0.62;
+}
+
 .job-card.not-interested::before,
-.job-card.resolved::before {
+.job-card.resolved::before,
+.job-card.expired::before {
   background: #c7d4e3;
   box-shadow: none;
 }
@@ -819,6 +837,12 @@ header.top h1 {
     border-color: #a9c9f5;
     background: var(--accent-bg);
     color: var(--accent-dark);
+  }
+
+  .chip-expired:hover {
+    border-color: #b6c3d2;
+    background: #eef1f6;
+    color: var(--text-secondary);
   }
 
   .filters select:hover,

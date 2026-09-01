@@ -278,8 +278,9 @@ function updateStats() {
     ? `更新于 ${new Date(latest).toLocaleString("zh-CN")} · 共 ${allJobs.length} 条可报名岗位`
     : "";
 
-  const pendingCount = allJobs.filter((j) => j.status === "pending").length;
-  const resolvedCount = allJobs.length - pendingCount;
+  // 待处理数字对齐主列表：不含已截止，这样和下面各截止分桶 chip 的计数之和一致。
+  const pendingCount = allJobs.filter((j) => j.status === "pending" && !isExpired(j)).length;
+  const resolvedCount = allJobs.filter((j) => j.status !== "pending").length;
   tabPendingCountEl.textContent = `(${pendingCount})`;
   tabResolvedCountEl.textContent = `(${resolvedCount})`;
 }
@@ -293,6 +294,17 @@ function bucketOptions() {
   return [{ key: "all", label: "全部" }, ...groups];
 }
 
+function isExpired(job) {
+  return deadlineBucket(job.deadline) === "expired";
+}
+
+function bucketFiltered(jobs, key) {
+  if (key !== "all") return jobs.filter((j) => jobBucketKey(j) === key);
+  // 已截止岗位仍算待处理，但默认不进主列表，需要时点最后那枚 chip 单独查看。
+  if (currentTab === "pending") return jobs.filter((j) => !isExpired(j));
+  return jobs;
+}
+
 function activeBucketKey() {
   return currentTab === "pending" ? pendingBucket : resolvedGroup;
 }
@@ -301,10 +313,12 @@ function renderBucketChips(baseFiltered) {
   const activeKey = activeBucketKey();
   chipRowEl.innerHTML = "";
   for (const opt of bucketOptions()) {
-    const count =
-      opt.key === "all" ? baseFiltered.length : baseFiltered.filter((j) => jobBucketKey(j) === opt.key).length;
+    const count = bucketFiltered(baseFiltered, opt.key).length;
     const btn = document.createElement("button");
-    btn.className = "chip" + (activeKey === opt.key ? " active" : "");
+    btn.className =
+      "chip" +
+      (opt.key === "expired" ? " chip-expired" : "") +
+      (activeKey === opt.key ? " active" : "");
     btn.textContent = `${opt.label} (${count})`;
     btn.addEventListener("click", () => {
       if (currentTab === "pending") pendingBucket = opt.key;
@@ -366,8 +380,7 @@ function renderJobs() {
   renderBucketChips(baseFiltered);
 
   const bucketKey = activeBucketKey();
-  let finalFiltered =
-    bucketKey === "all" ? baseFiltered : baseFiltered.filter((j) => jobBucketKey(j) === bucketKey);
+  let finalFiltered = bucketFiltered(baseFiltered, bucketKey);
 
   if (currentTab === "resolved") {
     finalFiltered = [...finalFiltered].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
@@ -488,7 +501,8 @@ function renderReasonBoxes(jobs, categories) {
 function renderCard(job) {
   const card = document.createElement("div");
   const notInterested = !!job.interest_tag;
-  card.className = "job-card" + (notInterested ? " not-interested" : "");
+  card.className =
+    "job-card" + (notInterested ? " not-interested" : "") + (isExpired(job) ? " expired" : "");
   card.dataset.jobId = job.id;
 
   card.innerHTML = `
