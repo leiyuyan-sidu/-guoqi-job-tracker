@@ -1,8 +1,9 @@
 import sys
 import time
+from collections import defaultdict
 
 import llm_match
-from db import get_client, upsert_jobs
+from db import fetch_all, get_client, upsert_jobs
 from config import PROFILE
 from match import check_disliked, check_graduation_year, is_blue_collar, rule_based_eligible
 from sources import eximbank, guopin, sasac
@@ -139,9 +140,11 @@ def run_freeform_source(source, fetch_list_fn, fetch_detail_fn, seen_keys, rows,
 
 def recheck_existing_graduation_year(client):
     """把历史库中明确只面向其他届别的岗位移出前端，避免规则只对新增数据生效。"""
-    result = client.table("jobs").select("id,title,description").eq("eligible", True).execute()
+    rows = fetch_all(
+        lambda: client.table("jobs").select("id,title,description").eq("eligible", True)
+    )
     excluded = 0
-    for row in result.data:
+    for row in rows:
         cohort_ok, reason = check_graduation_year(
             PROFILE["graduation_year"], row.get("title"), row.get("description")
         )
@@ -153,43 +156,73 @@ def recheck_existing_graduation_year(client):
     print(f"历史岗位届别复核完成：排除 {excluded} 条不面向{PROFILE['graduation_year']}届的岗位")
 
 
+def apply_salary_updates(client, updates):
+    """把 {raw_key: 薪资文本} 写回数据库。
+
+    薪资文本的取值很集中（大部分是「面议」），按取值分组后能把几千条更新
+    压缩成几十次请求；分批是因为 raw_key 会拼进 URL，一次塞太多会超长。
+    """
+    by_salary = defaultdict(list)
+    for raw_key, salary in updates.items():
+        by_salary[salary].append(raw_key)
+
+    for salary, keys in by_salary.items():
+        for start in range(0, len(keys), 100):
+            client.table("jobs").update({"salary": salary}).in_(
+                "raw_key", keys[start : start + 100]
+            ).execute()
+
+
 def backfill_guopin_salaries(client, jobs):
     """为已有国聘岗位补薪资；推荐列表缺失时再按岗位 ID 查询详情。"""
     try:
-        existing = client.table("jobs").select("raw_key,salary").eq("source", "guopin").execute()
+        missing = fetch_all(
+            lambda: client.table("jobs")
+            .select("raw_key")
+            .eq("source", "guopin")
+            .is_("salary", "null")
+        )
     except Exception:
         print("数据库尚未增加 salary 列，暂时跳过历史薪资回填")
         return
 
-    missing_keys = {row["raw_key"] for row in existing.data if not row.get("salary")}
-    updated = 0
+    missing_keys = {row["raw_key"] for row in missing}
+    if not missing_keys:
+        print("历史国聘岗位薪资已齐全，无需回填")
+        return
+    print(f"待回填薪资的国聘岗位 {len(missing_keys)} 条")
+
+    # 当天的推荐列表本身就带薪资字段，先用它覆盖一批，省掉同样数量的详情请求。
+    from_list = {}
     for job in jobs:
         raw_key = f"guopin:{job['job_id']}"
         salary = format_guopin_salary(job)
         if raw_key in missing_keys and salary:
-            client.table("jobs").update({"salary": salary}).eq("raw_key", raw_key).execute()
-            missing_keys.remove(raw_key)
-            updated += 1
+            from_list[raw_key] = salary
+    apply_salary_updates(client, from_list)
+    missing_keys -= from_list.keys()
 
     # 推荐列表会随排序和岗位状态变化，仍缺失的历史岗位必须走详情接口。
-    detail_updated = 0
+    from_detail = {}
     detail_failed = 0
-    for raw_key in sorted(missing_keys):
+    remaining = sorted(missing_keys)
+    for i, raw_key in enumerate(remaining, 1):
         job_id = raw_key.removeprefix("guopin:")
         try:
-            detail = guopin.fetch_job_detail(job_id)
-            salary = format_guopin_salary(detail)
+            salary = format_guopin_salary(guopin.fetch_job_detail(job_id))
             if salary:
-                client.table("jobs").update({"salary": salary}).eq("raw_key", raw_key).execute()
-                detail_updated += 1
+                from_detail[raw_key] = salary
         except Exception as exc:
             detail_failed += 1
             print(f"[薪资补录跳过] guopin job_id={job_id}: {exc}", file=sys.stderr)
+        if i % 200 == 0:
+            print(f"  详情补录进度 {i}/{len(remaining)}")
         time.sleep(0.12)
+    apply_salary_updates(client, from_detail)
 
     print(
         "历史国聘岗位薪资回填完成："
-        f"列表更新 {updated} 条，详情更新 {detail_updated} 条，详情失败 {detail_failed} 条"
+        f"列表更新 {len(from_list)} 条，详情更新 {len(from_detail)} 条，详情失败 {detail_failed} 条"
     )
 
 
@@ -199,8 +232,8 @@ def main():
     recheck_existing_graduation_year(client)
 
     print("读取已入库的岗位（避免重复用大模型判断已经判过的岗位）…")
-    existing = client.table("jobs").select("raw_key").execute()
-    seen_keys = {r["raw_key"] for r in existing.data}
+    existing = fetch_all(lambda: client.table("jobs").select("raw_key"))
+    seen_keys = {r["raw_key"] for r in existing}
     print(f"  已有 {len(seen_keys)} 条")
 
     rows = []
