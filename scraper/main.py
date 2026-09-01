@@ -124,9 +124,34 @@ def build_row_freeform(source, item, fetch_detail_fn):
     }
 
 
-def run_freeform_source(source, fetch_list_fn, fetch_detail_fn, seen_keys, rows, label):
+def fetch_with_retry(fetch_fn, label, attempts=3, backoff_sec=5):
+    """重试包装。国资委、进出口银行官网从 GitHub 的海外机器访问经常读超时，
+    一次失败就放弃太浪费，这里退避重试几次。"""
+    for attempt in range(1, attempts + 1):
+        try:
+            return fetch_fn()
+        except Exception as e:
+            if attempt == attempts:
+                raise
+            wait = backoff_sec * attempt
+            print(f"  {label}第 {attempt} 次失败（{e}），{wait} 秒后重试…", file=sys.stderr)
+            time.sleep(wait)
+
+
+def run_freeform_source(source, fetch_list_fn, fetch_detail_fn, seen_keys, label):
+    """抓取一个无结构公告数据源，返回收集到的行。
+
+    列表抓取失败只放弃这一个数据源并返回空列表，不能让整次任务崩掉——
+    否则其他数据源已经花掉的大模型调用会一起丢失。
+    """
     print(f"抓取{label}…")
-    items = fetch_list_fn()
+    rows = []
+    try:
+        items = fetch_with_retry(fetch_list_fn, f"{label}列表抓取")
+    except Exception as e:
+        print(f"[跳过数据源] {label}列表抓取失败，本次不处理该来源: {e}", file=sys.stderr)
+        return rows
+
     new_items = [it for it in items if f"{source}:{it['url']}" not in seen_keys]
     print(f"共抓到 {len(items)} 条校招相关公告，其中新公告 {len(new_items)} 条，开始逐条判断…")
     for i, item in enumerate(new_items, 1):
@@ -136,6 +161,7 @@ def run_freeform_source(source, fetch_list_fn, fetch_detail_fn, seen_keys, rows,
             print(f"[跳过] {source} url={item.get('url')} 处理失败: {e}", file=sys.stderr)
         if i % 20 == 0:
             print(f"  已处理 {i}/{len(new_items)}")
+    return rows
 
 
 def recheck_existing_graduation_year(client):
@@ -203,7 +229,10 @@ def backfill_guopin_salaries(client, jobs):
     missing_keys -= from_list.keys()
 
     # 推荐列表会随排序和岗位状态变化，仍缺失的历史岗位必须走详情接口。
-    from_detail = {}
+    # 从海外机器逐条打国内接口很慢（首次积压几千条要跑近一小时），
+    # 所以边跑边分批写库，中途被取消也不会前功尽弃。
+    pending = {}
+    detail_done = 0
     detail_failed = 0
     remaining = sorted(missing_keys)
     for i, raw_key in enumerate(remaining, 1):
@@ -211,19 +240,62 @@ def backfill_guopin_salaries(client, jobs):
         try:
             salary = format_guopin_salary(guopin.fetch_job_detail(job_id))
             if salary:
-                from_detail[raw_key] = salary
+                pending[raw_key] = salary
         except Exception as exc:
             detail_failed += 1
             print(f"[薪资补录跳过] guopin job_id={job_id}: {exc}", file=sys.stderr)
+        if len(pending) >= 500:
+            apply_salary_updates(client, pending)
+            detail_done += len(pending)
+            pending = {}
         if i % 200 == 0:
-            print(f"  详情补录进度 {i}/{len(remaining)}")
+            print(f"  详情补录进度 {i}/{len(remaining)}（已写入 {detail_done} 条）")
         time.sleep(0.12)
-    apply_salary_updates(client, from_detail)
+    apply_salary_updates(client, pending)
+    detail_done += len(pending)
 
     print(
         "历史国聘岗位薪资回填完成："
-        f"列表更新 {len(from_list)} 条，详情更新 {len(from_detail)} 条，详情失败 {detail_failed} 条"
+        f"列表更新 {len(from_list)} 条，详情更新 {detail_done} 条，详情失败 {detail_failed} 条"
     )
+
+
+def commit_rows(client, rows, label):
+    """把一个数据源的结果立刻写库。
+
+    分数据源写入而不是最后一次性 upsert：后面的数据源出错时，前面已经花掉
+    大模型调用换来的判断结果不会跟着丢掉。
+    """
+    if not rows:
+        print(f"{label}：无新增岗位")
+        return
+    eligible_count = sum(1 for r in rows if r["eligible"])
+    upsert_jobs(client, rows)
+    print(f"{label}：写入 {len(rows)} 条，其中可报名 {eligible_count} 条")
+
+
+def run_guopin_source(client, seen_keys):
+    """返回国聘新增岗位的行。顺带完成历史薪资回填。"""
+    print("抓取国聘校招岗位…")
+    try:
+        jobs = fetch_with_retry(guopin.fetch_all_campus_jobs, "国聘岗位列表抓取")
+    except Exception as e:
+        print(f"[跳过数据源] 国聘岗位列表抓取失败，本次不处理该来源: {e}", file=sys.stderr)
+        return []
+
+    backfill_guopin_salaries(client, jobs)
+
+    new_jobs = [j for j in jobs if f"guopin:{j['job_id']}" not in seen_keys]
+    print(f"共抓到 {len(jobs)} 条，其中新岗位 {len(new_jobs)} 条，开始逐条判断是否符合报名条件…")
+    rows = []
+    for i, job in enumerate(new_jobs, 1):
+        try:
+            rows.append(build_row_guopin(job))
+        except Exception as e:
+            print(f"[跳过] guopin job_id={job.get('job_id')} 处理失败: {e}", file=sys.stderr)
+        if i % 20 == 0:
+            print(f"  已处理 {i}/{len(new_jobs)}")
+    return rows
 
 
 def main():
@@ -236,28 +308,23 @@ def main():
     seen_keys = {r["raw_key"] for r in existing}
     print(f"  已有 {len(seen_keys)} 条")
 
-    rows = []
+    commit_rows(client, run_guopin_source(client, seen_keys), "国聘")
 
-    print("抓取国聘校招岗位…")
-    jobs = guopin.fetch_all_campus_jobs()
-    backfill_guopin_salaries(client, jobs)
-    new_jobs = [j for j in jobs if f"guopin:{j['job_id']}" not in seen_keys]
-    print(f"共抓到 {len(jobs)} 条，其中新岗位 {len(new_jobs)} 条，开始逐条判断是否符合报名条件…")
-    for i, job in enumerate(new_jobs, 1):
-        try:
-            rows.append(build_row_guopin(job))
-        except Exception as e:
-            print(f"[跳过] guopin job_id={job.get('job_id')} 处理失败: {e}", file=sys.stderr)
-        if i % 20 == 0:
-            print(f"  已处理 {i}/{len(new_jobs)}")
+    commit_rows(
+        client,
+        run_freeform_source(
+            "sasac", sasac.fetch_list, sasac.fetch_detail, seen_keys, "国资委官网人事招聘公告"
+        ),
+        "国资委",
+    )
+    commit_rows(
+        client,
+        run_freeform_source(
+            "eximbank", eximbank.fetch_list, eximbank.fetch_detail, seen_keys, "进出口银行人才招聘公告"
+        ),
+        "进出口银行",
+    )
 
-    run_freeform_source("sasac", sasac.fetch_list, sasac.fetch_detail, seen_keys, rows, "国资委官网人事招聘公告")
-    run_freeform_source("eximbank", eximbank.fetch_list, eximbank.fetch_detail, seen_keys, rows, "进出口银行人才招聘公告")
-
-    eligible_count = sum(1 for r in rows if r["eligible"])
-    print(f"新增数据中可报名 {eligible_count} 条，写入 Supabase（含不符合的岗位，仅用于避免重复判断，前端只展示可报名的）…")
-
-    upsert_jobs(client, rows)
     print("完成。")
 
 
