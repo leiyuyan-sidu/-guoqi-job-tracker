@@ -114,18 +114,15 @@ body {
   }
 
   header.top h1 {
-    gap: 6px;
-    font-size: 21px;
+    font-size: 20px;
+    letter-spacing: 0.04em;
   }
 
   .brand-plane {
-    width: 44px;
-    height: 40px;
-    padding: 6px;
-  }
-
-  .brand-subtitle {
-    font-size: 11px;
+    width: 40px;
+    height: 35px;
+    padding: 5px;
+    border-radius: 12px;
   }
 }
 
@@ -156,14 +153,13 @@ header.top {
 }
 
 header.top h1 {
-  display: flex;
-  gap: 8px;
   margin: 0;
   font-family: "Microsoft YaHei UI", "PingFang SC", "Segoe UI", sans-serif;
-  font-size: 25px;
-  font-weight: 700;
-  letter-spacing: 0.025em;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   line-height: 1.24;
+  color: #2f4159;
 }
 
 .brand-block {
@@ -172,15 +168,16 @@ header.top h1 {
   gap: 13px;
 }
 
+/* 副标题去掉后品牌区只剩两行，图标随之收小一档才不会压过标题 */
 .brand-plane {
   display: grid;
   place-items: center;
-  width: 50px;
-  height: 44px;
-  padding: 7px;
+  width: 44px;
+  height: 39px;
+  padding: 6px;
   flex: 0 0 auto;
   border: 1px solid rgba(255, 255, 255, 0.76);
-  border-radius: 15px;
+  border-radius: 13px;
   background: linear-gradient(145deg, rgba(255, 255, 255, 0.58), rgba(210, 235, 255, 0.36));
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 8px 20px rgba(55, 91, 136, 0.1);
   backdrop-filter: blur(12px) saturate(125%);
@@ -192,20 +189,8 @@ header.top h1 {
   min-width: 0;
 }
 
-.brand-accent {
-  color: #397ec5;
-  font-weight: 550;
-}
-
-.brand-subtitle {
-  margin: 3px 0 1px;
-  color: #66809f;
-  font-size: 12px;
-  letter-spacing: 0.02em;
-}
-
 .updated-hint {
-  margin: 0;
+  margin: 5px 0 0;
   font-size: 13px;
   color: var(--text-muted);
 }

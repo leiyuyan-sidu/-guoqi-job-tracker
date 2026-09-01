@@ -271,11 +271,13 @@ function populateSourceFilter() {
 }
 
 function updateStats() {
-  statTotalEl.textContent = allJobs.length;
+  // 「可报名」只算还能投的：已截止的岗位报不了名，不该计入。
+  const openJobs = allJobs.filter((j) => !isExpired(j));
+  statTotalEl.textContent = openJobs.length;
   statAppliedEl.textContent = allJobs.filter((j) => j.status === "applied").length;
   const latest = allJobs.reduce((max, j) => (j.created_at > max ? j.created_at : max), "");
   updatedHintEl.textContent = latest
-    ? `更新于 ${new Date(latest).toLocaleString("zh-CN")} · 共 ${allJobs.length} 条可报名岗位`
+    ? `更新于 ${new Date(latest).toLocaleString("zh-CN")} · 共 ${openJobs.length} 条可报名岗位`
     : "";
 
   // 待处理数字对齐主列表：不含已截止，这样和下面各截止分桶 chip 的计数之和一致。
