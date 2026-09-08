@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7db4fb"/>
+      <stop offset="1" stop-color="#2f6fd0"/>
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="7" fill="url(#tile)"/>
+  <!-- 复用站点品牌区那架纸飞机的轮廓，缩放居中；细折线在 16px 下会糊掉，
+       改用半透明底面表现折纸的层次 -->
+  <g transform="translate(3.8 7.4) scale(0.611)">
+    <path d="M3 14 38 3 27 26 19 18 12 23 13.5 16Z" fill="#ffffff" fill-opacity="0.5"/>
+    <path d="M2 12 37 2 25 24 18 16 10 21 12 14Z" fill="#ffffff"/>
+  </g>
+</svg>
