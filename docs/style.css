@@ -1053,8 +1053,9 @@ dialog textarea {
   }
 }
 
+/* 工具类要能盖住组件自身的 display，否则后面追加的规则会在同特异性下胜出 */
 .hidden {
-  display: none;
+  display: none !important;
 }
 
 .radio-group {
@@ -1317,5 +1318,205 @@ dialog button.secondary {
 @media (max-width: 700px) {
   .timeline-delete {
     opacity: 1;
+  }
+}
+
+/* ---------- 批量标记 ---------- */
+
+.batch-toggle {
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 8px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.batch-toggle.active {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+  color: var(--accent-dark);
+  font-weight: 600;
+}
+
+.batch-check {
+  width: 17px;
+  height: 17px;
+  margin: 3px 0 0;
+  flex: 0 0 auto;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+/* 批量模式下整卡可点选，去掉悬停位移免得像可拖动 */
+body.batch-active .job-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* 勾选期间藏起单条操作按钮，避免误触把某个岗位直接标掉 */
+body.batch-active .job-actions {
+  display: none;
+}
+
+.job-card.selected {
+  border-color: var(--accent);
+  background: rgba(232, 241, 255, 0.9);
+  box-shadow: 0 6px 18px rgba(59, 130, 246, 0.16), inset 0 1px 0 rgba(255, 255, 255, 1);
+}
+
+.job-card.selected::before {
+  height: 100%;
+  top: 0;
+  border-radius: 0;
+}
+
+/* 底部操作条不能挡住最后一张卡 */
+body.batch-active .wrap {
+  padding-bottom: 108px;
+}
+
+.batch-bar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  z-index: 40;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  width: calc(100% - 32px);
+  max-width: 720px;
+  padding: 11px 16px;
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(226, 241, 255, 0.82));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.96), 0 16px 40px rgba(40, 70, 110, 0.2);
+  backdrop-filter: blur(20px) saturate(135%);
+  -webkit-backdrop-filter: blur(20px) saturate(135%);
+}
+
+.batch-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.batch-spacer {
+  flex: 1;
+}
+
+.batch-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--accent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.batch-link:hover {
+  text-decoration: underline;
+}
+
+.batch-action {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  padding: 7px 15px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.batch-action.skip {
+  border-color: rgba(220, 38, 38, 0.4);
+  color: var(--danger);
+}
+
+.batch-action.skip:not(:disabled):hover {
+  background: var(--danger-bg);
+}
+
+.batch-action.undecided {
+  border-color: rgba(180, 83, 9, 0.4);
+  color: var(--warn);
+}
+
+.batch-action.undecided:not(:disabled):hover {
+  background: var(--warn-bg);
+}
+
+.batch-action:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.undo-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 88px;
+  z-index: 50;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 11px 18px;
+  border-radius: 12px;
+  background: rgba(32, 45, 62, 0.94);
+  box-shadow: 0 14px 34px rgba(23, 40, 62, 0.32);
+  color: #eef4fb;
+  font-size: 13px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.undo-toast button {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #8fc0ff;
+  cursor: pointer;
+}
+
+.undo-toast button:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 700px) {
+  /* 四个按钮挤一行会各自折成两行，不如让它们自然换行 */
+  .tabs {
+    flex-wrap: wrap;
+  }
+
+  .batch-toggle {
+    margin-left: 0;
+    padding: 8px 12px;
+  }
+
+  .batch-spacer {
+    display: none;
+  }
+
+  .batch-bar {
+    bottom: 10px;
+  }
+
+  .undo-toast {
+    bottom: 96px;
   }
 }

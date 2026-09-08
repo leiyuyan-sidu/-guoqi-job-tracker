@@ -52,6 +52,7 @@
     <button class="tab-btn active" id="tab-pending" data-tab="pending">待处理 <span id="tab-pending-count"></span></button>
     <button class="tab-btn" id="tab-progress" data-tab="progress">投递进度 <span id="tab-progress-count"></span></button>
     <button class="tab-btn" id="tab-resolved" data-tab="resolved">已处理记录 <span id="tab-resolved-count"></span></button>
+    <button class="batch-toggle" id="batch-toggle" title="批量标记">批量</button>
   </div>
 
   <div class="filters">
@@ -76,6 +77,21 @@
   </div>
 
   <div class="pagination" id="pagination"></div>
+</div>
+
+<div class="batch-bar hidden" id="batch-bar">
+  <span class="batch-count" id="batch-count">已选 0 条</span>
+  <button type="button" class="batch-link" id="batch-select-page">全选本页</button>
+  <button type="button" class="batch-link" id="batch-select-all">全选筛选结果</button>
+  <span class="batch-spacer"></span>
+  <button type="button" class="batch-action undecided" id="batch-undecided">待定</button>
+  <button type="button" class="batch-action skip" id="batch-skip">不投递</button>
+  <button type="button" class="batch-link" id="batch-cancel">退出</button>
+</div>
+
+<div class="undo-toast hidden" id="undo-toast">
+  <span id="undo-text"></span>
+  <button type="button" id="undo-btn">撤销</button>
 </div>
 
 <dialog id="login-dialog">

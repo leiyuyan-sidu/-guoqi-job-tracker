@@ -38,6 +38,12 @@ const tabResolvedBtn = document.getElementById("tab-resolved");
 const tabPendingCountEl = document.getElementById("tab-pending-count");
 const tabProgressCountEl = document.getElementById("tab-progress-count");
 const tabResolvedCountEl = document.getElementById("tab-resolved-count");
+const batchToggleBtn = document.getElementById("batch-toggle");
+const batchBarEl = document.getElementById("batch-bar");
+const batchCountEl = document.getElementById("batch-count");
+const undoToastEl = document.getElementById("undo-toast");
+const undoTextEl = document.getElementById("undo-text");
+const undoBtnEl = document.getElementById("undo-btn");
 const chipRowEl = document.getElementById("bucket-chips");
 const paginationEl = document.getElementById("pagination");
 const stickyToolbarEl = document.querySelector(".sticky-toolbar");
@@ -68,6 +74,16 @@ let eventsByJob = new Map();
 let eventsLoaded = false;
 let progressTargetJob = null;
 let listNeedsEntranceAnimation = true;
+let batchMode = false;
+let selectedIds = new Set();
+let batchReasonStatus = null;
+let currentFiltered = [];
+let currentPageItems = [];
+let undoTimer = null;
+
+const BATCH_WRITE_SIZE = 100;
+const BATCH_CONFIRM_THRESHOLD = 50;
+const UNDO_WINDOW_MS = 10000;
 
 const STATUS_LABELS = {
   applied: "已投递",
@@ -233,6 +249,7 @@ async function refreshAuthUI() {
       loginDialog.showModal();
     };
   }
+  syncBatchAvailability();
   renderJobs();
   // 首屏加载和登录态解析是并行的，这里再补一次，确保登录后能补齐起点事件。
   backfillAppliedEvents();
@@ -574,6 +591,10 @@ function renderJobs() {
     finalFiltered = sortByUrgency(finalFiltered);
   }
 
+  // 批量「全选筛选结果」要用到当前筛选出的完整集合，不只是本页。
+  currentFiltered = finalFiltered;
+  currentPageItems = [];
+
   if (finalFiltered.length === 0) {
     const hasActiveFilters = Boolean(sourceVal || dateVal || q || bucketKey !== "all");
     if (currentTab === "progress" && !hasActiveFilters) {
@@ -619,6 +640,7 @@ function renderJobs() {
   if (currentPage > totalPages) currentPage = totalPages;
   const start = (currentPage - 1) * PAGE_SIZE;
   const pageItems = finalFiltered.slice(start, start + PAGE_SIZE);
+  currentPageItems = pageItems;
 
   jobListEl.innerHTML = "";
   if (currentTab === "progress") renderUpcomingBanner(finalFiltered);
@@ -709,8 +731,11 @@ function renderCard(job) {
     "job-card" + (notInterested ? " not-interested" : "") + (isExpired(job) ? " expired" : "");
   card.dataset.jobId = job.id;
 
+  if (batchMode && selectedIds.has(job.id)) card.classList.add("selected");
+
   card.innerHTML = `
     <div class="job-card-top">
+      ${batchMode ? `<input type="checkbox" class="batch-check" ${selectedIds.has(job.id) ? "checked" : ""} aria-label="选择该岗位">` : ""}
       <div class="job-card-main">
         <div class="job-card-title-row">
           <span class="company">${escapeHtml(job.company)}</span>
@@ -737,11 +762,30 @@ function renderCard(job) {
     </div>
   `;
 
-  card.querySelector(".icon-btn.check").addEventListener("click", () => setStatus(job, "applied"));
-  card.querySelector(".icon-btn.cross").addEventListener("click", () => openSkipDialog(job));
-  card.querySelector(".icon-btn.undecided").addEventListener("click", () => openUndecidedDialog(job));
+  if (batchMode) {
+    // 整张卡都可点选，快速扫标签时不用瞄准那个小方框；链接除外。
+    card.addEventListener("click", (e) => {
+      if (e.target.closest("a")) return;
+      toggleSelection(job.id, !selectedIds.has(job.id), card);
+    });
+  } else {
+    card.querySelector(".icon-btn.check").addEventListener("click", () => setStatus(job, "applied"));
+    card.querySelector(".icon-btn.cross").addEventListener("click", () => openSkipDialog(job));
+    card.querySelector(".icon-btn.undecided").addEventListener("click", () => openUndecidedDialog(job));
+  }
 
   return card;
+}
+
+function toggleSelection(jobId, selected, card) {
+  if (selected) selectedIds.add(jobId);
+  else selectedIds.delete(jobId);
+  if (card) {
+    card.classList.toggle("selected", selected);
+    const box = card.querySelector(".batch-check");
+    if (box) box.checked = selected;
+  }
+  updateBatchBar();
 }
 
 /**
@@ -937,6 +981,11 @@ undecidedForm.addEventListener("submit", (e) => {
   let reason = selected ? selected.value : null;
   if (reason === "其他") reason = undecidedOtherReasonEl.value.trim() || "其他";
   undecidedDialog.close();
+  if (batchReasonStatus) {
+    batchReasonStatus = null;
+    applyBatch("undecided", reason);
+    return;
+  }
   if (undecidedTargetJob) {
     setStatus(undecidedTargetJob, "undecided", reason);
     undecidedTargetJob = null;
@@ -945,6 +994,7 @@ undecidedForm.addEventListener("submit", (e) => {
 
 document.getElementById("undecided-cancel").addEventListener("click", () => {
   undecidedTargetJob = null;
+  batchReasonStatus = null;
   undecidedDialog.close();
 });
 
@@ -1054,6 +1104,11 @@ skipForm.addEventListener("submit", (e) => {
   let reason = selected ? selected.value : null;
   if (reason === "其他") reason = skipOtherReasonEl.value.trim() || "其他";
   skipDialog.close();
+  if (batchReasonStatus) {
+    batchReasonStatus = null;
+    applyBatch("skipped", reason);
+    return;
+  }
   if (skipTargetJob) {
     setStatus(skipTargetJob, "skipped", reason);
     skipTargetJob = null;
@@ -1062,6 +1117,7 @@ skipForm.addEventListener("submit", (e) => {
 
 document.getElementById("skip-cancel").addEventListener("click", () => {
   skipTargetJob = null;
+  batchReasonStatus = null;
   skipDialog.close();
 });
 
@@ -1130,6 +1186,151 @@ async function syncStageEvents(job, newStatus, previousStatus) {
     renderJobs();
   }
 }
+
+/* ---------- 批量标记 ---------- */
+
+function setBatchMode(on) {
+  batchMode = on;
+  selectedIds.clear();
+  batchBarEl.classList.toggle("hidden", !on);
+  batchToggleBtn.classList.toggle("active", on);
+  batchToggleBtn.textContent = on ? "退出批量" : "批量";
+  document.body.classList.toggle("batch-active", on);
+  updateBatchBar();
+  renderJobs();
+}
+
+function updateBatchBar() {
+  batchCountEl.textContent = `已选 ${selectedIds.size} 条`;
+  for (const btn of batchBarEl.querySelectorAll(".batch-action")) {
+    btn.disabled = selectedIds.size === 0;
+  }
+}
+
+function selectJobs(jobs) {
+  for (const job of jobs) selectedIds.add(job.id);
+  updateBatchBar();
+  renderJobs();
+}
+
+/** 按 100 一批提交，避免 id 列表拼进 URL 后超长。 */
+async function writeStatusBatch(ids, payload) {
+  for (let i = 0; i < ids.length; i += BATCH_WRITE_SIZE) {
+    const { error } = await supabase
+      .from("jobs")
+      .update(payload)
+      .in("id", ids.slice(i, i + BATCH_WRITE_SIZE));
+    if (error) return error;
+  }
+  return null;
+}
+
+function applyLocally(items) {
+  const byId = new Map(items.map((it) => [it.id, it]));
+  for (const job of allJobs) {
+    const it = byId.get(job.id);
+    if (it) {
+      job.status = it.status;
+      job.status_note = it.status_note;
+    }
+  }
+  writeJobsCache();
+  updateStats();
+  renderJobs();
+}
+
+async function applyBatch(newStatus, note) {
+  if (!session) return;
+  const jobs = allJobs.filter((j) => selectedIds.has(j.id));
+  if (!jobs.length) return;
+
+  // 记下原状态，撤销时按原样还原（每条的原因可能各不相同）。
+  const undoItems = jobs.map((j) => ({
+    id: j.id,
+    status: j.status,
+    status_note: j.status_note,
+  }));
+  const nextItems = jobs.map((j) => ({ id: j.id, status: newStatus, status_note: note ?? null }));
+
+  selectedIds.clear();
+  applyLocally(nextItems);
+
+  const error = await writeStatusBatch(
+    jobs.map((j) => j.id),
+    { status: newStatus, status_note: note ?? null }
+  );
+  if (error) {
+    applyLocally(undoItems);
+    alert("批量更新失败，已恢复：" + error.message);
+    return;
+  }
+  showUndoToast(`已把 ${jobs.length} 个岗位标记为${STATUS_LABELS[newStatus]}`, undoItems);
+}
+
+function showUndoToast(text, undoItems) {
+  undoTextEl.textContent = text;
+  undoToastEl.classList.remove("hidden");
+  window.clearTimeout(undoTimer);
+  undoTimer = window.setTimeout(() => undoToastEl.classList.add("hidden"), UNDO_WINDOW_MS);
+
+  undoBtnEl.onclick = async () => {
+    undoToastEl.classList.add("hidden");
+    window.clearTimeout(undoTimer);
+    applyLocally(undoItems);
+
+    // 原状态可能不止一种，按 (状态, 原因) 分组还原。
+    const groups = new Map();
+    for (const it of undoItems) {
+      const key = JSON.stringify([it.status, it.status_note ?? null]);
+      if (!groups.has(key)) groups.set(key, { payload: { status: it.status, status_note: it.status_note }, ids: [] });
+      groups.get(key).ids.push(it.id);
+    }
+    for (const g of groups.values()) {
+      const error = await writeStatusBatch(g.ids, g.payload);
+      if (error) {
+        alert("撤销失败：" + error.message);
+        return;
+      }
+    }
+  };
+}
+
+function openBatchReasonDialog(status) {
+  if (!selectedIds.size) return;
+  batchReasonStatus = status;
+  if (status === "skipped") {
+    skipForm.reset();
+    skipOtherReasonEl.classList.add("hidden");
+    skipDialog.showModal();
+  } else {
+    undecidedForm.reset();
+    undecidedOtherReasonEl.classList.add("hidden");
+    undecidedDialog.showModal();
+  }
+}
+
+/** 批量只在「待处理」里提供，且必须登录——未登录改不了任何状态。 */
+function syncBatchAvailability() {
+  const available = currentTab === "pending" && !!session;
+  batchToggleBtn.classList.toggle("hidden", !available);
+  if (!available && batchMode) setBatchMode(false);
+}
+
+batchToggleBtn.addEventListener("click", () => setBatchMode(!batchMode));
+document.getElementById("batch-cancel").addEventListener("click", () => setBatchMode(false));
+document.getElementById("batch-select-page").addEventListener("click", () => selectJobs(currentPageItems));
+document.getElementById("batch-select-all").addEventListener("click", () => {
+  const count = currentFiltered.length;
+  if (
+    count > BATCH_CONFIRM_THRESHOLD &&
+    !window.confirm(`将选中当前筛选结果的全部 ${count} 个岗位，确定吗？`)
+  ) {
+    return;
+  }
+  selectJobs(currentFiltered);
+});
+document.getElementById("batch-skip").addEventListener("click", () => openBatchReasonDialog("skipped"));
+document.getElementById("batch-undecided").addEventListener("click", () => openBatchReasonDialog("undecided"));
 
 function paperPlaneSvg() {
   return `
@@ -1268,6 +1469,7 @@ for (const btn of tabButtons) {
     for (const other of tabButtons) {
       other.classList.toggle("active", other.dataset.tab === currentTab);
     }
+    syncBatchAvailability();
     renderJobs();
     scrollToListStart();
   });
