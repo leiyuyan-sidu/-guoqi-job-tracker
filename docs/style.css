@@ -1107,3 +1107,215 @@ dialog button.secondary {
   font-size: 12px;
   min-height: 16px;
 }
+
+/* ---------- 投递进度 ---------- */
+
+.badge.stage-applied      { background: var(--accent-bg); color: var(--accent-dark); }
+.badge.stage-resume_passed{ background: #e7f1fb; color: #2f6ca6; }
+.badge.stage-written_test { background: #eef0fb; color: #4a54a8; }
+.badge.stage-interview    { background: var(--warn-bg); color: var(--warn); }
+.badge.stage-offer        { background: var(--success-bg); color: var(--success); }
+.badge.stage-closed       { background: #f1f3f5; color: var(--text-muted); }
+
+.job-card.progress-card::before {
+  background: linear-gradient(180deg, #8fd0a8, #3f9d6b);
+}
+
+.job-card.progress-card.closed {
+  opacity: 0.62;
+}
+
+.job-card.progress-card.closed::before {
+  background: #c7d4e3;
+  box-shadow: none;
+}
+
+.stalled-hint {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+/* 两周没动静就该去催了，标红提醒 */
+.stalled-hint.warn {
+  color: #c05b32;
+  font-weight: 600;
+}
+
+.next-schedule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  padding: 4px 9px;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid rgba(150, 190, 232, 0.5);
+  border-radius: 8px;
+  background: rgba(233, 244, 255, 0.75);
+  color: #2f6ca6;
+  font-size: 12px;
+}
+
+.next-schedule .cal {
+  font-size: 11px;
+}
+
+.timeline-toggle {
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.timeline-toggle:hover {
+  color: var(--accent-dark);
+}
+
+.timeline {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border);
+}
+
+.timeline-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.timeline-row.future {
+  color: #2f6ca6;
+}
+
+.timeline-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #b9cde4;
+}
+
+.timeline-row.future .timeline-dot {
+  background: #3b82f6;
+}
+
+.timeline-date {
+  min-width: 42px;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.timeline-stage {
+  font-weight: 600;
+}
+
+.timeline-note {
+  color: var(--text-muted);
+}
+
+.timeline-delete {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 11px;
+  color: var(--text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 140ms ease, color 140ms ease;
+}
+
+.timeline-row:hover .timeline-delete {
+  opacity: 1;
+}
+
+.timeline-delete:hover {
+  color: var(--danger);
+}
+
+.timeline-empty {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.upcoming-banner {
+  padding: 12px 16px;
+  border: 1px solid rgba(150, 190, 232, 0.55);
+  border-radius: var(--radius);
+  background: rgba(233, 244, 255, 0.7);
+}
+
+.upcoming-title {
+  margin-bottom: 6px;
+  color: #2f6ca6;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.upcoming-banner ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.upcoming-banner li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.upcoming-when {
+  min-width: 46px;
+  color: #c05b32;
+  font-weight: 600;
+}
+
+.upcoming-date {
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.upcoming-stage {
+  font-weight: 600;
+}
+
+.upcoming-note {
+  color: var(--text-muted);
+}
+
+.icon-btn.add-event:not(:disabled):hover {
+  border-color: var(--success);
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.dialog-subject {
+  margin: -6px 0 12px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow-wrap: anywhere;
+}
+
+.field-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+@media (max-width: 700px) {
+  .timeline-delete {
+    opacity: 1;
+  }
+}

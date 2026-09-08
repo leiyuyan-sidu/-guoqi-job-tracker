@@ -49,6 +49,7 @@
   <div class="sticky-toolbar">
   <div class="tabs">
     <button class="tab-btn active" id="tab-pending" data-tab="pending">待处理 <span id="tab-pending-count"></span></button>
+    <button class="tab-btn" id="tab-progress" data-tab="progress">投递进度 <span id="tab-progress-count"></span></button>
     <button class="tab-btn" id="tab-resolved" data-tab="resolved">已处理记录 <span id="tab-resolved-count"></span></button>
   </div>
 
@@ -102,6 +103,29 @@
     <div class="dialog-actions">
       <button type="button" class="secondary" id="undecided-cancel">取消</button>
       <button type="submit" class="primary">确认</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="progress-dialog">
+  <h3>记录进展</h3>
+  <p class="dialog-subject" id="progress-subject"></p>
+  <form id="progress-form">
+    <div class="radio-group">
+      <label><input type="radio" name="progress-stage" value="applied"> 已投递</label>
+      <label><input type="radio" name="progress-stage" value="resume_passed"> 简历通过</label>
+      <label><input type="radio" name="progress-stage" value="written_test"> 笔试</label>
+      <label><input type="radio" name="progress-stage" value="interview"> 面试</label>
+      <label><input type="radio" name="progress-stage" value="offer"> Offer</label>
+      <label><input type="radio" name="progress-stage" value="rejected"> 未通过</label>
+    </div>
+    <label class="field-label" for="progress-date">日期（可填未来，用于笔试/面试排期）</label>
+    <input type="date" id="progress-date" required>
+    <input type="text" id="progress-note" maxlength="60" placeholder="备注（选填，如「二面」「线上机考」）">
+    <p class="dialog-error" id="progress-error"></p>
+    <div class="dialog-actions">
+      <button type="button" class="secondary" id="progress-cancel">取消</button>
+      <button type="submit" class="primary">保存</button>
     </div>
   </form>
 </dialog>

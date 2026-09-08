@@ -26,9 +26,17 @@ const undecidedOtherReasonEl = document.getElementById("undecided-other-reason")
 const skipDialog = document.getElementById("skip-dialog");
 const skipForm = document.getElementById("skip-form");
 const skipOtherReasonEl = document.getElementById("skip-other-reason");
+const progressDialog = document.getElementById("progress-dialog");
+const progressForm = document.getElementById("progress-form");
+const progressSubjectEl = document.getElementById("progress-subject");
+const progressDateEl = document.getElementById("progress-date");
+const progressNoteEl = document.getElementById("progress-note");
+const progressErrorEl = document.getElementById("progress-error");
 const tabPendingBtn = document.getElementById("tab-pending");
+const tabProgressBtn = document.getElementById("tab-progress");
 const tabResolvedBtn = document.getElementById("tab-resolved");
 const tabPendingCountEl = document.getElementById("tab-pending-count");
+const tabProgressCountEl = document.getElementById("tab-progress-count");
 const tabResolvedCountEl = document.getElementById("tab-resolved-count");
 const chipRowEl = document.getElementById("bucket-chips");
 const paginationEl = document.getElementById("pagination");
@@ -36,6 +44,7 @@ const stickyToolbarEl = document.querySelector(".sticky-toolbar");
 
 const PAGE_SIZE = 10;
 const JOB_CACHE_KEY = "guoqi-job-tracker:jobs:v1";
+const EVENT_CACHE_KEY = "guoqi-job-tracker:events:v1";
 const JOB_FIELDS = [
   "id", "source", "company", "title", "location", "education",
   "major_requirement", "eligible_reason", "interest_tag", "posted_at",
@@ -51,8 +60,12 @@ let undecidedTargetJob = null;
 let skipTargetJob = null;
 let pendingBucket = "all";
 let resolvedGroup = "all";
+let progressGroup = "all";
 let currentPage = 1;
 let expandedReasons = new Set();
+let expandedTimelines = new Set();
+let eventsByJob = new Map();
+let progressTargetJob = null;
 let listNeedsEntranceAnimation = true;
 
 const STATUS_LABELS = {
@@ -70,11 +83,30 @@ const DEADLINE_BUCKETS = [
   { key: "expired", label: "已截止" },
 ];
 
+// 已投递岗位改由「投递进度」Tab 跟进，已处理记录只留决策归档。
 const RESOLVED_GROUPS = [
-  { key: "applied", label: "已投递" },
   { key: "skipped", label: "不投递" },
   { key: "undecided", label: "待定" },
 ];
+
+const STAGES = [
+  { key: "applied", label: "已投递" },
+  { key: "resume_passed", label: "简历通过" },
+  { key: "written_test", label: "笔试" },
+  { key: "interview", label: "面试" },
+  { key: "offer", label: "Offer" },
+  { key: "rejected", label: "未通过" },
+];
+
+const STAGE_LABELS = Object.fromEntries(STAGES.map((s) => [s.key, s.label]));
+
+// 分组用的当前阶段：记过「未通过」就归入已结束，不再占据活跃列表。
+const PROGRESS_GROUPS = [
+  ...STAGES.filter((s) => s.key !== "rejected"),
+  { key: "closed", label: "已结束" },
+];
+
+const UPCOMING_DAYS = 7;
 
 const SKIP_REASON_CATEGORIES = ["工资太低", "地区不合适", "工作内容不喜欢", "专业不符合"];
 const UNDECIDED_REASON_CATEGORIES = ["工资一般", "地区一般", "专业不太符合"];
@@ -105,6 +137,60 @@ function deadlineTone(deadline) {
   if (diffDays <= 7) return "urgent";
   if (diffDays <= 14) return "soon";
   return "";
+}
+
+function todayStr() {
+  return toLocalDateStr(new Date());
+}
+
+/** 相对今天的天数差；正数表示还有几天，负数表示已过去几天。 */
+function daysFromToday(dateStr) {
+  if (!dateStr) return null;
+  const target = new Date(`${dateStr}T00:00:00`);
+  const today = new Date(todayStr() + "T00:00:00");
+  return Math.round((target - today) / (1000 * 60 * 60 * 24));
+}
+
+function jobEvents(job) {
+  return eventsByJob.get(job.id) || [];
+}
+
+/** 事件按时间先后排序：日期为主，同日按记录时间兜底。 */
+function sortedEvents(job) {
+  return [...jobEvents(job)].sort(
+    (a, b) =>
+      a.happened_on.localeCompare(b.happened_on) ||
+      (a.created_at || "").localeCompare(b.created_at || "")
+  );
+}
+
+function latestEvent(job) {
+  const events = sortedEvents(job);
+  return events.length ? events[events.length - 1] : null;
+}
+
+/**
+ * 当前阶段。按 happened_on 取最新而不是 created_at，这样今天登记「9/15 笔试」
+ * 之后当前阶段立刻变成笔试，不用等到那天。
+ */
+function jobStage(job) {
+  const events = jobEvents(job);
+  if (events.some((e) => e.stage === "rejected")) return "closed";
+  const latest = latestEvent(job);
+  return latest ? latest.stage : "applied";
+}
+
+/** 最近一个尚未到来的日程，用于「还有 N 天」提示。 */
+function nextSchedule(job) {
+  return sortedEvents(job).find((e) => daysFromToday(e.happened_on) > 0) || null;
+}
+
+/** 当前阶段已经停留了多少天，用来识别投出去之后没动静的岗位。 */
+function daysInCurrentStage(job) {
+  const latest = latestEvent(job);
+  if (!latest) return null;
+  const diff = daysFromToday(latest.happened_on);
+  return diff > 0 ? null : -diff;
 }
 
 function fmtDate(d) {
@@ -209,7 +295,32 @@ async function loadJobs() {
   updateStats();
   renderJobs();
   finishSyncIndicator(syncStartedAt);
+  loadEvents();
   loadSalaries();
+}
+
+async function loadEvents() {
+  const { data, error } = await supabase
+    .from("application_events")
+    .select("id,job_id,stage,happened_on,note,created_at");
+  if (error || !data) return;
+
+  indexEvents(data);
+  writeEventsCache(data);
+  updateStats();
+  renderJobs();
+}
+
+function indexEvents(rows) {
+  eventsByJob = new Map();
+  for (const row of rows) {
+    if (!eventsByJob.has(row.job_id)) eventsByJob.set(row.job_id, []);
+    eventsByJob.get(row.job_id).push(row);
+  }
+}
+
+function allEvents() {
+  return [...eventsByJob.values()].flat();
 }
 
 async function loadSalaries() {
@@ -246,12 +357,26 @@ function finishSyncIndicator(startedAt, minimumMs = 1100) {
 
 function restoreJobsCache() {
   try {
+    const cachedEvents = JSON.parse(localStorage.getItem(EVENT_CACHE_KEY));
+    if (Array.isArray(cachedEvents)) indexEvents(cachedEvents);
+  } catch {
+    // 进度缓存坏了不影响岗位列表，联网后会重新拉一份。
+  }
+  try {
     const cached = JSON.parse(localStorage.getItem(JOB_CACHE_KEY));
     if (!cached || !Array.isArray(cached.jobs)) return false;
     allJobs = cached.jobs;
     return true;
   } catch {
     return false;
+  }
+}
+
+function writeEventsCache(rows) {
+  try {
+    localStorage.setItem(EVENT_CACHE_KEY, JSON.stringify(rows ?? allEvents()));
+  } catch {
+    // 浏览器禁用本地存储时跳过缓存，不影响功能。
   }
 }
 
@@ -282,17 +407,28 @@ function updateStats() {
 
   // 待处理数字对齐主列表：不含已截止，这样和下面各截止分桶 chip 的计数之和一致。
   const pendingCount = allJobs.filter((j) => j.status === "pending" && !isExpired(j)).length;
-  const resolvedCount = allJobs.filter((j) => j.status !== "pending").length;
+  const progressCount = allJobs.filter((j) => j.status === "applied").length;
+  const resolvedCount = allJobs.filter(
+    (j) => j.status !== "pending" && j.status !== "applied"
+  ).length;
   tabPendingCountEl.textContent = `(${pendingCount})`;
+  tabProgressCountEl.textContent = `(${progressCount})`;
   tabResolvedCountEl.textContent = `(${resolvedCount})`;
 }
 
 function jobBucketKey(job) {
-  return currentTab === "pending" ? deadlineBucket(job.deadline) : job.status;
+  if (currentTab === "pending") return deadlineBucket(job.deadline);
+  if (currentTab === "progress") return jobStage(job);
+  return job.status;
 }
 
 function bucketOptions() {
-  const groups = currentTab === "pending" ? DEADLINE_BUCKETS : RESOLVED_GROUPS;
+  const groups =
+    currentTab === "pending"
+      ? DEADLINE_BUCKETS
+      : currentTab === "progress"
+        ? PROGRESS_GROUPS
+        : RESOLVED_GROUPS;
   return [{ key: "all", label: "全部" }, ...groups];
 }
 
@@ -308,7 +444,15 @@ function bucketFiltered(jobs, key) {
 }
 
 function activeBucketKey() {
-  return currentTab === "pending" ? pendingBucket : resolvedGroup;
+  if (currentTab === "pending") return pendingBucket;
+  if (currentTab === "progress") return progressGroup;
+  return resolvedGroup;
+}
+
+function setActiveBucketKey(key) {
+  if (currentTab === "pending") pendingBucket = key;
+  else if (currentTab === "progress") progressGroup = key;
+  else resolvedGroup = key;
 }
 
 function renderBucketChips(baseFiltered) {
@@ -323,8 +467,7 @@ function renderBucketChips(baseFiltered) {
       (activeKey === opt.key ? " active" : "");
     btn.textContent = `${opt.label} (${count})`;
     btn.addEventListener("click", () => {
-      if (currentTab === "pending") pendingBucket = opt.key;
-      else resolvedGroup = opt.key;
+      setActiveBucketKey(opt.key);
       currentPage = 1;
       expandedReasons.clear();
       listNeedsEntranceAnimation = true;
@@ -376,7 +519,8 @@ function renderJobs() {
       if (toLocalDateStr(relevantDate) !== dateVal) return false;
     }
     if (currentTab === "pending") return j.status === "pending";
-    return j.status !== "pending";
+    if (currentTab === "progress") return j.status === "applied";
+    return j.status !== "pending" && j.status !== "applied";
   });
 
   renderBucketChips(baseFiltered);
@@ -388,8 +532,22 @@ function renderJobs() {
     finalFiltered = [...finalFiltered].sort((a, b) => (b.updated_at || "").localeCompare(a.updated_at || ""));
   }
 
+  if (currentTab === "progress") {
+    finalFiltered = sortByUrgency(finalFiltered);
+  }
+
   if (finalFiltered.length === 0) {
     const hasActiveFilters = Boolean(sourceVal || dateVal || q || bucketKey !== "all");
+    if (currentTab === "progress" && !hasActiveFilters) {
+      jobListEl.innerHTML = `
+        <div class="empty-state empty-state-card">
+          <span class="empty-state-icon">✈</span>
+          <strong>还没有投递中的岗位</strong>
+          <p>在「待处理」里点 ✓ 标记已投递后，岗位会出现在这里，可以逐步记录简历通过、笔试、面试到 Offer 的进展。</p>
+        </div>`;
+      paginationEl.innerHTML = "";
+      return;
+    }
     if (currentTab === "pending" && !hasActiveFilters && allJobs.length === 0) {
       jobListEl.innerHTML = `
         <div class="empty-state empty-state-card">
@@ -398,10 +556,13 @@ function renderJobs() {
           <p>暂未发现符合2027届报名条件的岗位，系统会在每日更新后自动补充。</p>
         </div>`;
     } else {
-      jobListEl.innerHTML =
+      const emptyText =
         currentTab === "pending"
-          ? '<div class="empty-state">当前筛选条件下没有待处理岗位。</div>'
-          : '<div class="empty-state">还没有符合条件的已处理岗位。</div>';
+          ? "当前筛选条件下没有待处理岗位。"
+          : currentTab === "progress"
+            ? "当前筛选条件下没有投递中的岗位。"
+            : "还没有符合条件的已处理岗位。";
+      jobListEl.innerHTML = `<div class="empty-state">${emptyText}</div>`;
     }
     paginationEl.innerHTML = "";
     return;
@@ -422,8 +583,11 @@ function renderJobs() {
   const pageItems = finalFiltered.slice(start, start + PAGE_SIZE);
 
   jobListEl.innerHTML = "";
+  if (currentTab === "progress") renderUpcomingBanner(finalFiltered);
   for (const job of pageItems) {
-    jobListEl.appendChild(currentTab === "pending" ? renderCard(job) : renderResolvedCard(job));
+    if (currentTab === "pending") jobListEl.appendChild(renderCard(job));
+    else if (currentTab === "progress") jobListEl.appendChild(renderProgressCard(job));
+    else jobListEl.appendChild(renderResolvedCard(job));
   }
 
   if (listNeedsEntranceAnimation) {
@@ -542,6 +706,138 @@ function renderCard(job) {
   return card;
 }
 
+/**
+ * 投递进度排序：有临近日程的排最前（按日期近的优先），
+ * 其余按当前阶段停留时间由长到短——停得越久越需要你去催。
+ * 已结束的沉到最后。
+ */
+function sortByUrgency(jobs) {
+  return [...jobs].sort((a, b) => {
+    const closedA = jobStage(a) === "closed";
+    const closedB = jobStage(b) === "closed";
+    if (closedA !== closedB) return closedA ? 1 : -1;
+
+    const nextA = nextSchedule(a);
+    const nextB = nextSchedule(b);
+    if (nextA && nextB) return nextA.happened_on.localeCompare(nextB.happened_on);
+    if (nextA) return -1;
+    if (nextB) return 1;
+
+    return (daysInCurrentStage(b) ?? -1) - (daysInCurrentStage(a) ?? -1);
+  });
+}
+
+function renderUpcomingBanner(jobs) {
+  const upcoming = [];
+  for (const job of jobs) {
+    for (const event of sortedEvents(job)) {
+      const days = daysFromToday(event.happened_on);
+      if (days > 0 && days <= UPCOMING_DAYS) upcoming.push({ job, event, days });
+    }
+  }
+  if (!upcoming.length) return;
+
+  upcoming.sort((a, b) => a.days - b.days);
+  const banner = document.createElement("div");
+  banner.className = "upcoming-banner";
+  banner.innerHTML = `
+    <div class="upcoming-title">即将到来（${UPCOMING_DAYS} 天内）</div>
+    <ul>
+      ${upcoming
+        .map(
+          ({ job, event, days }) => `
+        <li>
+          <span class="upcoming-when">${days === 1 ? "明天" : `${days} 天后`}</span>
+          <span class="upcoming-date">${event.happened_on.slice(5)}</span>
+          <span class="upcoming-stage">${STAGE_LABELS[event.stage]}</span>
+          <span class="upcoming-company">${escapeHtml(job.company)}</span>
+          ${event.note ? `<span class="upcoming-note">${escapeHtml(event.note)}</span>` : ""}
+        </li>`
+        )
+        .join("")}
+    </ul>`;
+  jobListEl.appendChild(banner);
+}
+
+function renderProgressCard(job) {
+  const stage = jobStage(job);
+  const closed = stage === "closed";
+  const card = document.createElement("div");
+  card.className = "job-card progress-card" + (closed ? " closed" : "");
+  card.dataset.jobId = job.id;
+
+  const events = sortedEvents(job);
+  const upcoming = nextSchedule(job);
+  const stalled = daysInCurrentStage(job);
+  const isOpen = expandedTimelines.has(job.id);
+
+  const stageLabel = closed ? "已结束" : STAGE_LABELS[stage] || stage;
+  const stalledText =
+    stalled === null ? "" : stalled === 0 ? "今天更新" : `已停留 ${stalled} 天`;
+  const upcomingDays = upcoming ? daysFromToday(upcoming.happened_on) : null;
+
+  card.innerHTML = `
+    <div class="job-card-top">
+      <div class="job-card-main">
+        <div class="job-card-title-row">
+          <span class="company">${escapeHtml(job.company)}</span>
+          <span class="badge stage-${closed ? "closed" : stage}">${stageLabel}</span>
+          ${stalledText ? `<span class="stalled-hint${stalled >= 14 && !closed ? " warn" : ""}">${stalledText}</span>` : ""}
+        </div>
+        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
+        ${
+          upcoming
+            ? `<p class="next-schedule"><span class="cal">📅</span>${upcoming.happened_on.slice(5)} ${STAGE_LABELS[upcoming.stage]}${upcoming.note ? " · " + escapeHtml(upcoming.note) : ""} · ${upcomingDays === 1 ? "明天" : `还有 ${upcomingDays} 天`}</p>`
+            : ""
+        }
+      </div>
+      <div class="job-actions">
+        <button class="icon-btn add-event" title="记录进展" ${session ? "" : "disabled"}>＋</button>
+        <button class="icon-btn revert" title="撤销投递，移回待处理" ${session ? "" : "disabled"}>↺</button>
+      </div>
+    </div>
+    <div class="job-card-bottom">
+      <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
+      <button type="button" class="timeline-toggle">${isOpen ? "▾" : "▸"} 时间线（${events.length}）</button>
+    </div>
+    ${isOpen ? renderTimeline(events) : ""}
+  `;
+
+  card.querySelector(".icon-btn.add-event").addEventListener("click", () => openProgressDialog(job));
+  card.querySelector(".icon-btn.revert").addEventListener("click", () => setStatus(job, "pending", null));
+  card.querySelector(".timeline-toggle").addEventListener("click", () => {
+    if (expandedTimelines.has(job.id)) expandedTimelines.delete(job.id);
+    else expandedTimelines.add(job.id);
+    renderJobs();
+  });
+  for (const btn of card.querySelectorAll(".timeline-delete")) {
+    btn.addEventListener("click", () => deleteEvent(job, btn.dataset.eventId));
+  }
+
+  return card;
+}
+
+function renderTimeline(events) {
+  if (!events.length) return '<div class="timeline"><p class="timeline-empty">还没有记录</p></div>';
+  return `
+    <div class="timeline">
+      ${[...events]
+        .reverse()
+        .map((e) => {
+          const days = daysFromToday(e.happened_on);
+          return `
+        <div class="timeline-row${days > 0 ? " future" : ""}">
+          <span class="timeline-dot"></span>
+          <span class="timeline-date">${e.happened_on.slice(5)}</span>
+          <span class="timeline-stage">${STAGE_LABELS[e.stage] || e.stage}</span>
+          ${e.note ? `<span class="timeline-note">${escapeHtml(e.note)}</span>` : ""}
+          <button type="button" class="timeline-delete" data-event-id="${e.id}" title="删除这条记录">✕</button>
+        </div>`;
+        })
+        .join("")}
+    </div>`;
+}
+
 function renderResolvedCard(job) {
   const card = document.createElement("div");
   card.className = "job-card resolved";
@@ -614,6 +910,93 @@ document.getElementById("undecided-cancel").addEventListener("click", () => {
   undecidedDialog.close();
 });
 
+function openProgressDialog(job) {
+  progressTargetJob = job;
+  progressForm.reset();
+  progressErrorEl.textContent = "";
+  progressSubjectEl.textContent = `${job.company} · ${job.title}`;
+  progressDateEl.value = todayStr();
+
+  // 预选下一个阶段，最常见的操作是往前推一步。
+  const stage = jobStage(job);
+  const order = STAGES.map((s) => s.key);
+  const next = stage === "closed" ? "rejected" : order[Math.min(order.indexOf(stage) + 1, order.length - 2)];
+  const radio = progressForm.querySelector(`input[name="progress-stage"][value="${next}"]`);
+  if (radio) radio.checked = true;
+
+  progressDialog.showModal();
+}
+
+progressForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const selected = progressForm.querySelector('input[name="progress-stage"]:checked');
+  if (!selected) {
+    progressErrorEl.textContent = "请选择一个阶段";
+    return;
+  }
+  if (!progressDateEl.value) {
+    progressErrorEl.textContent = "请选择日期";
+    return;
+  }
+
+  const job = progressTargetJob;
+  progressDialog.close();
+  progressTargetJob = null;
+  if (!job) return;
+
+  await addEvent(job, {
+    stage: selected.value,
+    happened_on: progressDateEl.value,
+    note: progressNoteEl.value.trim() || null,
+  });
+});
+
+document.getElementById("progress-cancel").addEventListener("click", () => {
+  progressTargetJob = null;
+  progressDialog.close();
+});
+
+async function addEvent(job, payload, { expand = true } = {}) {
+  if (!session) return;
+  const { data, error } = await supabase
+    .from("application_events")
+    .insert({ job_id: job.id, ...payload })
+    .select()
+    .single();
+
+  if (error) {
+    alert("保存进展失败：" + error.message);
+    return;
+  }
+
+  if (!eventsByJob.has(job.id)) eventsByJob.set(job.id, []);
+  eventsByJob.get(job.id).push(data);
+  // 手动记录后展开时间线让你确认写对了；自动补的起点事件不打扰。
+  if (expand) expandedTimelines.add(job.id);
+  writeEventsCache();
+  renderJobs();
+}
+
+async function deleteEvent(job, eventId) {
+  if (!session) return;
+  const { error } = await supabase.from("application_events").delete().eq("id", eventId);
+  if (error) {
+    alert("删除失败：" + error.message);
+    return;
+  }
+  eventsByJob.set(job.id, jobEvents(job).filter((e) => e.id !== eventId));
+  writeEventsCache();
+  renderJobs();
+}
+
+async function deleteEventsFor(job) {
+  const { error } = await supabase.from("application_events").delete().eq("job_id", job.id);
+  if (error) return;
+  eventsByJob.delete(job.id);
+  expandedTimelines.delete(job.id);
+  writeEventsCache();
+}
+
 function openSkipDialog(job) {
   skipTargetJob = job;
   skipForm.reset();
@@ -646,6 +1029,16 @@ document.getElementById("skip-cancel").addEventListener("click", () => {
 
 async function setStatus(job, newStatus, note) {
   if (!session) return;
+
+  // 撤销投递等于「其实没投」，进度记录一并清掉，但先确认避免误删。
+  const existingEvents = jobEvents(job).length;
+  if (newStatus === "pending" && existingEvents > 0) {
+    const ok = window.confirm(
+      `撤销后会一并删除该岗位的 ${existingEvents} 条投递进度记录，且无法恢复。确定继续吗？`
+    );
+    if (!ok) return;
+  }
+
   const card = [...jobListEl.querySelectorAll(".job-card")].find(
     (element) => element.dataset.jobId === job.id
   );
@@ -676,7 +1069,10 @@ async function setStatus(job, newStatus, note) {
   }
 
   const { error } = await updateRequest;
-  if (!error) return;
+  if (!error) {
+    await syncStageEvents(job, newStatus, previousStatus);
+    return;
+  }
 
   // 保存失败时撤销本地状态，让岗位重新出现，避免界面与数据库不一致。
   job.status = previousStatus;
@@ -685,6 +1081,16 @@ async function setStatus(job, newStatus, note) {
   updateStats();
   renderJobs();
   alert("更新失败，岗位已恢复：" + error.message);
+}
+
+/** 投递状态变化时同步进度事件：标为已投递自动补起点，撤销则清空。 */
+async function syncStageEvents(job, newStatus, previousStatus) {
+  if (newStatus === "applied" && previousStatus !== "applied" && !jobEvents(job).length) {
+    await addEvent(job, { stage: "applied", happened_on: todayStr(), note: null }, { expand: false });
+  } else if (newStatus === "pending") {
+    await deleteEventsFor(job);
+    renderJobs();
+  }
 }
 
 function paperPlaneSvg() {
@@ -814,14 +1220,16 @@ searchEl.addEventListener("input", () => {
   renderJobs();
 });
 
-for (const btn of [tabPendingBtn, tabResolvedBtn]) {
+const tabButtons = [tabPendingBtn, tabProgressBtn, tabResolvedBtn];
+for (const btn of tabButtons) {
   btn.addEventListener("click", () => {
     currentTab = btn.dataset.tab;
     currentPage = 1;
     expandedReasons.clear();
     listNeedsEntranceAnimation = true;
-    tabPendingBtn.classList.toggle("active", currentTab === "pending");
-    tabResolvedBtn.classList.toggle("active", currentTab === "resolved");
+    for (const other of tabButtons) {
+      other.classList.toggle("active", other.dataset.tab === currentTab);
+    }
     renderJobs();
     scrollToListStart();
   });
