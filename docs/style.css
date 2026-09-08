@@ -669,7 +669,10 @@ header.top h1 {
   gap: 12px;
 }
 
+/* 必须能撑满剩余空间：job-card-top 用的是 space-between，批量模式下
+   操作按钮被隐藏，只剩勾选框和正文两个子项，正文会被推到最右边 */
 .job-card-main {
+  flex: 1;
   min-width: 0;
 }
 
