@@ -712,10 +712,12 @@ header.top h1 {
   color: var(--text-secondary);
 }
 
+/* 标准薪资是「12,000–20,000 元/月」这类 17-19 字的短串，必须完整显示；
+   国资委那边由大模型从公告正文提取，偶尔会返回几十字的福利宣传语，
+   靠上限加省略号收住，完整内容留在 title 里 */
 .salary-tag {
-  display: inline-flex;
-  align-items: center;
-  margin-left: 0;
+  display: inline-block;
+  max-width: min(100%, 190px);
   padding: 1px 7px;
   border: 1px solid rgba(120, 171, 221, 0.28);
   border-radius: 999px;
@@ -723,8 +725,9 @@ header.top h1 {
   color: #3974ad;
   font-size: 11px;
   line-height: 1.55;
-  vertical-align: 1px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .job-meta-row {

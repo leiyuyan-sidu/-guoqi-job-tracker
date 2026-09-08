@@ -739,7 +739,7 @@ function renderCard(job) {
       <div class="job-card-main">
         <div class="job-card-title-row">
           <span class="company">${escapeHtml(job.company)}</span>
-          <span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span>
+          <span class="salary-tag" title="${escapeHtml(job.salary || "薪资未注明")}">${escapeHtml(job.salary || "薪资未注明")}</span>
           ${notInterested ? '<span class="badge not-interested">不感兴趣</span>' : ""}
           ${isToday(job.created_at) ? '<span class="badge new">今日新增</span>' : ""}
         </div>
@@ -930,7 +930,7 @@ function renderResolvedCard(job) {
         <div class="job-card-title-row">
           <span class="company">${escapeHtml(job.company)}</span>
           <span class="badge status-${job.status}">${STATUS_LABELS[job.status] || job.status}</span>
-          <span class="salary-tag">${escapeHtml(job.salary || "薪资未注明")}</span>
+          <span class="salary-tag" title="${escapeHtml(job.salary || "薪资未注明")}">${escapeHtml(job.salary || "薪资未注明")}</span>
         </div>
         <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
         <div class="job-meta-row">
