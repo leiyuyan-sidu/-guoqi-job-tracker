@@ -65,6 +65,7 @@ let currentPage = 1;
 let expandedReasons = new Set();
 let expandedTimelines = new Set();
 let eventsByJob = new Map();
+let eventsLoaded = false;
 let progressTargetJob = null;
 let listNeedsEntranceAnimation = true;
 
@@ -233,6 +234,8 @@ async function refreshAuthUI() {
     };
   }
   renderJobs();
+  // 首屏加载和登录态解析是并行的，这里再补一次，确保登录后能补齐起点事件。
+  backfillAppliedEvents();
 }
 
 loginForm.addEventListener("submit", async (e) => {
@@ -306,8 +309,43 @@ async function loadEvents() {
   if (error || !data) return;
 
   indexEvents(data);
+  eventsLoaded = true;
   writeEventsCache(data);
   updateStats();
+  renderJobs();
+  backfillAppliedEvents();
+}
+
+/**
+ * 补齐缺失的投递起点事件。
+ *
+ * 两种情况会出现「已投递却没有任何事件」：本功能上线之前就标记过的岗位，
+ * 以及改状态成功、但紧接着的事件写入没跑完（两者是独立请求）。
+ * 投递日期取 updated_at，也就是当初点下「已投递」的那一刻。
+ */
+async function backfillAppliedEvents() {
+  if (!session || !eventsLoaded) return;
+  const missing = allJobs.filter((j) => j.status === "applied" && !jobEvents(j).length);
+  if (!missing.length) return;
+
+  const { data, error } = await supabase
+    .from("application_events")
+    .insert(
+      missing.map((j) => ({
+        job_id: j.id,
+        stage: "applied",
+        happened_on: toLocalDateStr(j.updated_at || j.created_at),
+        note: null,
+      }))
+    )
+    .select();
+  if (error || !data) return;
+
+  for (const row of data) {
+    if (!eventsByJob.has(row.job_id)) eventsByJob.set(row.job_id, []);
+    eventsByJob.get(row.job_id).push(row);
+  }
+  writeEventsCache();
   renderJobs();
 }
 
