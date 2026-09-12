@@ -18,6 +18,8 @@
   --radius-sm: 8px;
   --brand-icon: 44px;
   --brand-gap: 13px;
+  --hint-line: 20px;
+  --hint-gap: 3px;
   --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(226, 241, 255, 0.38));
   --glass-border: rgba(255, 255, 255, 0.7);
   --glass-shadow: 0 14px 36px rgba(57, 91, 135, 0.12);
@@ -124,6 +126,13 @@ body {
     --brand-icon: 40px;
   }
 
+  /* 数字卡换行后要避开挂在标题下方的时间行。
+     必须比基础规则更具体——后面的 .brand-row{gap:...} 是简写，
+     同特异性下会按源码顺序把这里的 row-gap 一起重置掉 */
+  header.top .brand-row {
+    row-gap: 26px;
+  }
+
   .brand-plane {
     height: 35px;
     padding: 5px;
@@ -156,6 +165,8 @@ body {
 }
 
 header.top {
+  /* 时间行挂在标题列外面，这里给它留出空间 */
+  padding-bottom: 8px;
   margin-bottom: 22px;
 }
 
@@ -165,6 +176,14 @@ header.top {
   align-items: center;
   flex-wrap: wrap;
   gap: var(--brand-gap);
+}
+
+/* 时间行用负的下外边距挂到本列之外，不计入列高。
+   这样 brand-row 居中时对齐的是标题本身，而不是「标题 + 时间」的整体中线——
+   数字卡比标题高一倍，否则标题下方会留出十几像素的空白 */
+.brand-copy {
+  min-width: 0;
+  margin-bottom: calc(-1 * (var(--hint-line) + var(--hint-gap)));
 }
 
 header.top h1 {
@@ -195,35 +214,15 @@ header.top h1 {
 }
 
 .updated-hint {
-  /* 缩进到标题下方，跟图标右侧对齐 */
-  margin: 9px 0 0;
-  padding-left: calc(var(--brand-icon) + var(--brand-gap));
+  margin: var(--hint-gap) 0 0;
+  /* 固定单行：加载失败时会往后追加文案，换行会把标题顶上去，所以宁可省略 */
+  height: var(--hint-line);
+  line-height: var(--hint-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-size: 13px;
   color: var(--text-muted);
-}
-
-.sync-indicator {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 0;
-  overflow: hidden;
-  color: var(--text-muted);
-  font-size: 12px;
-  opacity: 0;
-  transform: translateY(-3px);
-  transition: height 180ms ease, opacity 180ms ease, transform 180ms ease;
-}
-
-.sync-indicator.visible {
-  height: 25px;
-  opacity: 1;
-  transform: translateY(0);
-}
-
-.sync-indicator .loading-flight {
-  width: 30px;
-  height: 21px;
 }
 
 .stats {

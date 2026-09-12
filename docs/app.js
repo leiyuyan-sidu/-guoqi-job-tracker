@@ -275,7 +275,6 @@ document.getElementById("login-cancel").addEventListener("click", () => {
 });
 
 async function loadJobs() {
-  const syncStartedAt = performance.now();
   jobsLoadError = null;
   const hasCachedJobs = restoreJobsCache();
 
@@ -284,7 +283,6 @@ async function loadJobs() {
     populateSourceFilter();
     updateStats();
     renderJobs();
-    showSyncIndicator();
   } else {
     jobsLoading = true;
     renderJobs();
@@ -297,7 +295,6 @@ async function loadJobs() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    finishSyncIndicator(syncStartedAt);
     if (hasCachedJobs) {
       updatedHintEl.textContent += " · 暂时无法更新，当前显示上次缓存";
     } else {
@@ -314,7 +311,6 @@ async function loadJobs() {
   populateSourceFilter();
   updateStats();
   renderJobs();
-  finishSyncIndicator(syncStartedAt);
   loadEvents();
   loadSalaries();
 }
@@ -389,25 +385,6 @@ async function loadSalaries() {
   for (const job of allJobs) job.salary = salaries.get(job.id) || null;
   writeJobsCache();
   renderJobs();
-}
-
-function showSyncIndicator() {
-  let indicator = document.getElementById("sync-indicator");
-  if (!indicator) {
-    indicator = document.createElement("span");
-    indicator.id = "sync-indicator";
-    indicator.className = "sync-indicator";
-    indicator.innerHTML = `<span class="loading-flight" aria-hidden="true">${paperPlaneSvg()}</span><span>正在同步最新岗位…</span>`;
-    updatedHintEl.insertAdjacentElement("afterend", indicator);
-  }
-  indicator.classList.add("visible");
-}
-
-function finishSyncIndicator(startedAt, minimumMs = 1100) {
-  const indicator = document.getElementById("sync-indicator");
-  if (!indicator) return;
-  const remaining = Math.max(0, minimumMs - (performance.now() - startedAt));
-  window.setTimeout(() => indicator.classList.remove("visible"), remaining);
 }
 
 function restoreJobsCache() {
