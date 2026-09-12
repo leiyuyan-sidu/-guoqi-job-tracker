@@ -16,6 +16,8 @@
   --warn-bg: #fef3e2;
   --radius: 12px;
   --radius-sm: 8px;
+  --brand-icon: 44px;
+  --brand-gap: 13px;
   --glass-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.58), rgba(226, 241, 255, 0.38));
   --glass-border: rgba(255, 255, 255, 0.7);
   --glass-shadow: 0 14px 36px rgba(57, 91, 135, 0.12);
@@ -118,11 +120,21 @@ body {
     letter-spacing: 0.04em;
   }
 
+  :root {
+    --brand-icon: 40px;
+  }
+
   .brand-plane {
-    width: 40px;
     height: 35px;
     padding: 5px;
     border-radius: 12px;
+  }
+
+  /* 窄屏上数字卡会换行；缩进到标题左边缘，和下面的更新时间对齐成一列。
+     这里必须用更高特异性——基础的 .stats{margin-left:auto} 写在本段之后，
+     同特异性下会按源码顺序把媒体查询里的声明盖掉 */
+  header.top .stats {
+    margin-left: calc(var(--brand-icon) + var(--brand-gap));
   }
 }
 
@@ -144,12 +156,15 @@ body {
 }
 
 header.top {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-end;
-  flex-wrap: wrap;
-  gap: 14px;
   margin-bottom: 22px;
+}
+
+/* 图标、标题、数字卡同处一行且居中，三者共享同一条中轴 */
+.brand-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--brand-gap);
 }
 
 header.top h1 {
@@ -162,17 +177,11 @@ header.top h1 {
   color: #2f4159;
 }
 
-.brand-block {
-  display: flex;
-  align-items: center;
-  gap: 13px;
-}
-
-/* 副标题去掉后品牌区只剩两行，图标随之收小一档才不会压过标题 */
+/* 图标比标题略小一档，免得压过标题 */
 .brand-plane {
   display: grid;
   place-items: center;
-  width: 44px;
+  width: var(--brand-icon);
   height: 39px;
   padding: 6px;
   flex: 0 0 auto;
@@ -185,12 +194,10 @@ header.top h1 {
   transform: rotate(-3deg);
 }
 
-.brand-copy {
-  min-width: 0;
-}
-
 .updated-hint {
-  margin: 5px 0 0;
+  /* 缩进到标题下方，跟图标右侧对齐 */
+  margin: 9px 0 0;
+  padding-left: calc(var(--brand-icon) + var(--brand-gap));
   font-size: 13px;
   color: var(--text-muted);
 }
@@ -222,6 +229,7 @@ header.top h1 {
 .stats {
   display: flex;
   gap: 10px;
+  margin-left: auto;
 }
 
 .stat-card {
