@@ -840,14 +840,11 @@ function pendingRow(job) {
   const badges =
     (isToday(job.created_at) ? '<span class="badge bg-green-lt ms-2">今日新增</span>' : "") +
     (notInterested ? '<span class="badge bg-secondary-lt ms-2">不感兴趣</span>' : "");
-  const clue = job.eligible_reason
-    ? `<div class="text-secondary small mt-1 clue"><i class="ti ti-sparkles text-yellow"></i> ${escapeHtml(job.eligible_reason)}</div>`
-    : "";
   const salary = job.salary || "薪资未注明";
   return `
     <tr class="job-row${notInterested || isExpired(job) ? " muted" : ""}${selected ? " selected" : ""}" data-job-id="${job.id}">
       ${batchMode ? `<td><input class="form-check-input m-0 align-middle batch-check" type="checkbox" ${selected ? "checked" : ""} aria-label="选择该岗位"></td>` : ""}
-      ${companyCell(job, badges, clue)}
+      ${companyCell(job, badges)}
       <td class="text-secondary small major-cell">${escapeHtml(job.major_requirement || "详见职位描述")}</td>
       <td>
         <div>${escapeHtml(job.education || "—")}</div>
@@ -859,8 +856,8 @@ function pendingRow(job) {
           ${linkButton(job)}
           ${batchMode ? "" : `
             <button type="button" class="btn btn-sm btn-outline-success act-apply" data-action="apply" ${lockAttr()}><i class="ti ti-send"></i>投递</button>
-            <button type="button" class="btn btn-sm btn-icon btn-ghost-warning" data-action="undecided" title="标记待定" ${lockAttr()}><i class="ti ti-help-circle"></i></button>
-            <button type="button" class="btn btn-sm btn-icon btn-ghost-danger" data-action="skip" title="标记不投递" ${lockAttr()}><i class="ti ti-x"></i></button>`}
+            <button type="button" class="btn btn-sm btn-outline-warning" data-action="undecided" ${lockAttr()}><i class="ti ti-help-circle"></i>待定</button>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-action="skip" ${lockAttr()}><i class="ti ti-x"></i>不投递</button>`}
         </div>
       </td>
     </tr>`;

@@ -43,28 +43,26 @@
 /* ---------- 岗位表格 ---------- */
 
 .job-cell {
-  min-width: 280px;
+  min-width: 200px;
+}
+
+/* 单位名较长时头像不能被挤扁，两个字也不能折成竖排 */
+.job-cell .avatar {
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .major-cell {
-  min-width: 150px;
-  max-width: 220px;
+  min-width: 120px;
+  max-width: 180px;
   white-space: normal;
 }
 
 .salary {
-  max-width: 170px;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-/* 匹配理由有时是大模型写的一整段话，最多显示两行 */
-.clue {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .job-row.muted > td {
