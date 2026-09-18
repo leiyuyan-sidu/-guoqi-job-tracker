@@ -3,50 +3,70 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const cfg = window.SUPABASE_CONFIG;
 if (!cfg || cfg.url.includes("YOUR-PROJECT-REF")) {
   document.getElementById("job-list").innerHTML =
-    '<div class="empty-state">还没有配置 Supabase：复制 docs/config.example.js 为 docs/config.js 并填入你的项目信息。</div>';
+    '<div class="empty"><p class="empty-title">还没有配置 Supabase</p><p class="empty-subtitle text-secondary">复制 docs/config.example.js 为 docs/config.js 并填入你的项目信息。</p></div>';
   throw new Error("Supabase config missing");
 }
 
 const supabase = createClient(cfg.url, cfg.anonKey);
 
-const jobListEl = document.getElementById("job-list");
-const statTotalEl = document.getElementById("stat-total");
-const statAppliedEl = document.getElementById("stat-applied");
-const updatedHintEl = document.getElementById("updated-hint");
-const authBarEl = document.getElementById("auth-bar");
-const sourceFilterEl = document.getElementById("filter-source");
-const dateFilterEl = document.getElementById("filter-date");
-const searchEl = document.getElementById("filter-search");
-const loginDialog = document.getElementById("login-dialog");
-const loginForm = document.getElementById("login-form");
-const loginError = document.getElementById("login-error");
-const undecidedDialog = document.getElementById("undecided-dialog");
-const undecidedForm = document.getElementById("undecided-form");
-const undecidedOtherReasonEl = document.getElementById("undecided-other-reason");
-const skipDialog = document.getElementById("skip-dialog");
-const skipForm = document.getElementById("skip-form");
-const skipOtherReasonEl = document.getElementById("skip-other-reason");
-const progressDialog = document.getElementById("progress-dialog");
-const progressForm = document.getElementById("progress-form");
-const progressSubjectEl = document.getElementById("progress-subject");
-const progressDateEl = document.getElementById("progress-date");
-const progressNoteEl = document.getElementById("progress-note");
-const progressErrorEl = document.getElementById("progress-error");
-const tabPendingBtn = document.getElementById("tab-pending");
-const tabProgressBtn = document.getElementById("tab-progress");
-const tabResolvedBtn = document.getElementById("tab-resolved");
-const tabPendingCountEl = document.getElementById("tab-pending-count");
-const tabProgressCountEl = document.getElementById("tab-progress-count");
-const tabResolvedCountEl = document.getElementById("tab-resolved-count");
-const batchToggleBtn = document.getElementById("batch-toggle");
-const batchBarEl = document.getElementById("batch-bar");
-const batchCountEl = document.getElementById("batch-count");
-const undoToastEl = document.getElementById("undo-toast");
-const undoTextEl = document.getElementById("undo-text");
-const undoBtnEl = document.getElementById("undo-btn");
-const chipRowEl = document.getElementById("bucket-chips");
-const paginationEl = document.getElementById("pagination");
-const stickyToolbarEl = document.querySelector(".sticky-toolbar");
+const $ = (id) => document.getElementById(id);
+
+const jobListEl = $("job-list");
+const listCardEl = $("list-card");
+const listFooterEl = $("list-footer");
+const listSummaryEl = $("list-summary");
+const paginationEl = $("pagination");
+const chipRowEl = $("bucket-chips");
+const bucketTitleEl = $("bucket-title");
+const upcomingCardEl = $("upcoming-card");
+const upcomingListEl = $("upcoming-list");
+const updatedHintEl = $("updated-hint");
+const authBarEl = $("auth-bar");
+const sourceFilterEl = $("filter-source");
+const dateFilterEl = $("filter-date");
+const searchEl = $("filter-search");
+
+const statNewEl = $("stat-new");
+const statTotalEl = $("stat-total");
+const statTotalSubEl = $("stat-total-sub");
+const statPendingEl = $("stat-pending");
+const statPendingSubEl = $("stat-pending-sub");
+const statPendingRatioEl = $("stat-pending-ratio");
+const statPendingBarEl = $("stat-pending-bar");
+const statAppliedEl = $("stat-applied");
+const statAppliedSubEl = $("stat-applied-sub");
+const statUrgentEl = $("stat-urgent");
+const statUrgentSubEl = $("stat-urgent-sub");
+
+const loginDialog = $("login-dialog");
+const loginForm = $("login-form");
+const loginError = $("login-error");
+const undecidedDialog = $("undecided-dialog");
+const undecidedForm = $("undecided-form");
+const undecidedOtherReasonEl = $("undecided-other-reason");
+const skipDialog = $("skip-dialog");
+const skipForm = $("skip-form");
+const skipOtherReasonEl = $("skip-other-reason");
+const progressDialog = $("progress-dialog");
+const progressForm = $("progress-form");
+const progressSubjectEl = $("progress-subject");
+const progressDateEl = $("progress-date");
+const progressNoteEl = $("progress-note");
+const progressErrorEl = $("progress-error");
+
+const tabPendingBtn = $("tab-pending");
+const tabProgressBtn = $("tab-progress");
+const tabResolvedBtn = $("tab-resolved");
+const tabPendingCountEl = $("tab-pending-count");
+const tabProgressCountEl = $("tab-progress-count");
+const tabResolvedCountEl = $("tab-resolved-count");
+
+const batchToggleBtn = $("batch-toggle");
+const batchBarEl = $("batch-bar");
+const batchCountEl = $("batch-count");
+const undoToastEl = $("undo-toast");
+const undoTextEl = $("undo-text");
+const undoBtnEl = $("undo-btn");
 
 const PAGE_SIZE = 10;
 const JOB_CACHE_KEY = "guoqi-job-tracker:jobs:v1";
@@ -84,11 +104,30 @@ let undoTimer = null;
 const BATCH_WRITE_SIZE = 100;
 const BATCH_CONFIRM_THRESHOLD = 50;
 const UNDO_WINDOW_MS = 10000;
+// 行级权限拦下的 UPDATE 不会报错，只会悄悄更新 0 行（最常见的是登录过期），要当成失败处理。
+const NO_ROWS_UPDATED = { message: "没有更新到任何数据，登录可能已过期，请重新登录" };
 
 const STATUS_LABELS = {
   applied: "已投递",
   skipped: "不投递",
   undecided: "待定",
+};
+
+const STATUS_BADGE = {
+  skipped: "bg-red-lt",
+  undecided: "bg-yellow-lt",
+};
+
+const SOURCE_LABELS = {
+  guopin: "国聘",
+  sasac: "国资委",
+  eximbank: "进出口银行",
+};
+
+const SOURCE_AVATAR = {
+  guopin: "bg-blue-lt",
+  sasac: "bg-red-lt",
+  eximbank: "bg-green-lt",
 };
 
 const DEADLINE_BUCKETS = [
@@ -117,11 +156,42 @@ const STAGES = [
 
 const STAGE_LABELS = Object.fromEntries(STAGES.map((s) => [s.key, s.label]));
 
+const STAGE_BADGE = {
+  applied: "bg-blue-lt",
+  resume_passed: "bg-cyan-lt",
+  written_test: "bg-indigo-lt",
+  interview: "bg-orange-lt",
+  offer: "bg-green-lt",
+  rejected: "bg-secondary-lt",
+  closed: "bg-secondary-lt",
+};
+
+const STAGE_ICON = {
+  applied: "ti-send",
+  resume_passed: "ti-file-check",
+  written_test: "ti-pencil",
+  interview: "ti-users",
+  offer: "ti-trophy",
+  rejected: "ti-x",
+};
+
 // 分组用的当前阶段：记过「未通过」就归入已结束，不再占据活跃列表。
 const PROGRESS_GROUPS = [
   ...STAGES.filter((s) => s.key !== "rejected"),
   { key: "closed", label: "已结束" },
 ];
+
+const BUCKET_TITLES = {
+  pending: "截止时间",
+  progress: "当前阶段",
+  resolved: "处理结果",
+};
+
+const BUCKET_ICONS = {
+  week1: '<i class="ti ti-alarm text-red me-2"></i>',
+  week2: '<i class="ti ti-clock text-orange me-2"></i>',
+  expired: '<i class="ti ti-archive me-2"></i>',
+};
 
 const UPCOMING_DAYS = 7;
 
@@ -145,15 +215,6 @@ function deadlineBucket(deadline) {
   if (diffDays <= 14) return "week2";
   if (diffDays <= 30) return "month1";
   return "monthplus";
-}
-
-function deadlineTone(deadline) {
-  if (!deadline) return "";
-  const diffDays = (new Date(deadline) - new Date()) / (1000 * 60 * 60 * 24);
-  if (diffDays < 0) return "expired";
-  if (diffDays <= 7) return "urgent";
-  if (diffDays <= 14) return "soon";
-  return "";
 }
 
 function todayStr() {
@@ -210,9 +271,14 @@ function daysInCurrentStage(job) {
   return diff > 0 ? null : -diff;
 }
 
-function fmtDate(d) {
-  if (!d) return "";
-  return new Date(d).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
+function shortDate(d) {
+  const x = new Date(d);
+  return `${x.getFullYear()}/${x.getMonth() + 1}/${x.getDate()}`;
+}
+
+function monthDay(dateStr) {
+  const [, m, d] = dateStr.split("-");
+  return `${Number(m)}月${Number(d)}日`;
 }
 
 function isToday(d) {
@@ -233,18 +299,29 @@ function fmtDateTime(d) {
   });
 }
 
+function relativeDay(days) {
+  if (days === 0) return "今天";
+  if (days === 1) return "明天";
+  return `${days} 天后`;
+}
+
 async function refreshAuthUI() {
   const { data } = await supabase.auth.getSession();
   session = data.session;
   if (session) {
-    authBarEl.innerHTML = `已登录：${session.user.email} · <button id="logout-btn">退出</button>`;
-    document.getElementById("logout-btn").onclick = async () => {
+    authBarEl.innerHTML = `
+      <div class="d-flex align-items-center gap-2">
+        <span class="avatar avatar-sm"><i class="ti ti-user"></i></span>
+        <span class="small d-none d-lg-inline">${escapeHtml(session.user.email)}</span>
+        <button type="button" class="btn btn-sm btn-ghost-secondary" id="logout-btn"><i class="ti ti-logout"></i>退出</button>
+      </div>`;
+    $("logout-btn").onclick = async () => {
       await supabase.auth.signOut();
       await refreshAuthUI();
     };
   } else {
-    authBarEl.innerHTML = `<button id="login-btn">登录（用于记录投递状态）</button>`;
-    document.getElementById("login-btn").onclick = () => {
+    authBarEl.innerHTML = `<button type="button" class="btn btn-sm btn-primary" id="login-btn"><i class="ti ti-login"></i>登录后可标记</button>`;
+    $("login-btn").onclick = () => {
       loginError.textContent = "";
       loginDialog.showModal();
     };
@@ -258,8 +335,8 @@ async function refreshAuthUI() {
 loginForm.addEventListener("submit", async (e) => {
   e.preventDefault();
   loginError.textContent = "";
-  const email = document.getElementById("login-email").value.trim();
-  const password = document.getElementById("login-password").value;
+  const email = $("login-email").value.trim();
+  const password = $("login-password").value;
   const { error } = await supabase.auth.signInWithPassword({ email, password });
   if (error) {
     loginError.textContent = "登录失败：" + error.message;
@@ -270,7 +347,7 @@ loginForm.addEventListener("submit", async (e) => {
   await refreshAuthUI();
 });
 
-document.getElementById("login-cancel").addEventListener("click", () => {
+$("login-cancel").addEventListener("click", () => {
   loginDialog.close();
 });
 
@@ -421,29 +498,49 @@ function writeJobsCache() {
 }
 
 function populateSourceFilter() {
+  const current = sourceFilterEl.value;
   const sources = [...new Set(allJobs.map((j) => j.source))];
   sourceFilterEl.innerHTML =
     '<option value="">全部来源</option>' +
-    sources.map((s) => `<option value="${s}">${s}</option>`).join("");
+    sources.map((s) => `<option value="${escapeAttr(s)}">${escapeHtml(SOURCE_LABELS[s] || s)}</option>`).join("");
+  if (sources.includes(current)) sourceFilterEl.value = current;
 }
 
 function updateStats() {
   // 「可报名」只算还能投的：已截止的岗位报不了名，不该计入。
   const openJobs = allJobs.filter((j) => !isExpired(j));
+  const newToday = allJobs.filter((j) => isToday(j.created_at)).length;
   statTotalEl.textContent = openJobs.length;
-  statAppliedEl.textContent = allJobs.filter((j) => j.status === "applied").length;
+  statTotalSubEl.textContent = `已剔除已截止 ${allJobs.length - openJobs.length} 个`;
+  statNewEl.textContent = `+${newToday} 今日`;
+  statNewEl.classList.toggle("hidden", newToday === 0);
+
+  // 待处理数字对齐主列表：不含已截止，这样和各截止分桶的计数之和一致。
+  const pendingOpen = allJobs.filter((j) => j.status === "pending" && !isExpired(j));
+  const applied = allJobs.filter((j) => j.status === "applied");
+  const resolvedCount = allJobs.filter((j) => j.status !== "pending" && j.status !== "applied").length;
+  const handled = applied.length + resolvedCount;
+  const ratio = handled + pendingOpen.length ? Math.round((handled / (handled + pendingOpen.length)) * 100) : 0;
+  statPendingEl.textContent = pendingOpen.length;
+  statPendingSubEl.textContent = `已处理 ${handled} 个`;
+  statPendingRatioEl.textContent = `${ratio}%`;
+  statPendingBarEl.style.width = `${ratio}%`;
+
+  const closedCount = applied.filter((j) => jobStage(j) === "closed").length;
+  statAppliedEl.textContent = applied.length;
+  statAppliedSubEl.textContent = `进行中 ${applied.length - closedCount} · 已结束 ${closedCount}`;
+
+  const urgent = pendingOpen.filter((j) => ["week1", "week2"].includes(deadlineBucket(j.deadline)));
+  const week1 = urgent.filter((j) => deadlineBucket(j.deadline) === "week1").length;
+  statUrgentEl.textContent = urgent.length;
+  statUrgentSubEl.textContent = `其中一周内 ${week1} 个`;
+
   const latest = allJobs.reduce((max, j) => (j.created_at > max ? j.created_at : max), "");
   updatedHintEl.textContent = latest ? `更新于 ${new Date(latest).toLocaleString("zh-CN")}` : "";
 
-  // 待处理数字对齐主列表：不含已截止，这样和下面各截止分桶 chip 的计数之和一致。
-  const pendingCount = allJobs.filter((j) => j.status === "pending" && !isExpired(j)).length;
-  const progressCount = allJobs.filter((j) => j.status === "applied").length;
-  const resolvedCount = allJobs.filter(
-    (j) => j.status !== "pending" && j.status !== "applied"
-  ).length;
-  tabPendingCountEl.textContent = `(${pendingCount})`;
-  tabProgressCountEl.textContent = `(${progressCount})`;
-  tabResolvedCountEl.textContent = `(${resolvedCount})`;
+  tabPendingCountEl.textContent = pendingOpen.length;
+  tabProgressCountEl.textContent = applied.length;
+  tabResolvedCountEl.textContent = resolvedCount;
 }
 
 function jobBucketKey(job) {
@@ -468,7 +565,7 @@ function isExpired(job) {
 
 function bucketFiltered(jobs, key) {
   if (key !== "all") return jobs.filter((j) => jobBucketKey(j) === key);
-  // 已截止岗位仍算待处理，但默认不进主列表，需要时点最后那枚 chip 单独查看。
+  // 已截止岗位仍算待处理，但默认不进主列表，需要时点最后那一项单独查看。
   if (currentTab === "pending") return jobs.filter((j) => !isExpired(j));
   return jobs;
 }
@@ -487,53 +584,86 @@ function setActiveBucketKey(key) {
 
 function renderBucketChips(baseFiltered) {
   const activeKey = activeBucketKey();
-  chipRowEl.innerHTML = "";
-  for (const opt of bucketOptions()) {
-    const count = bucketFiltered(baseFiltered, opt.key).length;
-    const btn = document.createElement("button");
-    btn.className =
-      "chip" +
-      (opt.key === "expired" ? " chip-expired" : "") +
-      (activeKey === opt.key ? " active" : "");
-    btn.textContent = `${opt.label} (${count})`;
-    btn.addEventListener("click", () => {
-      setActiveBucketKey(opt.key);
-      currentPage = 1;
-      expandedReasons.clear();
-      listNeedsEntranceAnimation = true;
-      renderJobs();
-      scrollToListStart();
-    });
-    chipRowEl.appendChild(btn);
-  }
+  bucketTitleEl.textContent = BUCKET_TITLES[currentTab];
+  chipRowEl.innerHTML = bucketOptions()
+    .map((opt) => {
+      const count = bucketFiltered(baseFiltered, opt.key).length;
+      const active = activeKey === opt.key;
+      let badge = "";
+      if (active) badge = "bg-primary-lt";
+      else if (opt.key === "week1" && count) badge = "bg-red-lt";
+      else if (opt.key === "week2" && count) badge = "bg-orange-lt";
+      return `
+        <a href="#" class="list-group-item list-group-item-action d-flex align-items-center${active ? " active" : ""}${opt.key === "expired" ? " bucket-expired" : ""}" data-bucket="${opt.key}">
+          ${BUCKET_ICONS[opt.key] || ""}${opt.label}<span class="badge ${badge} ms-auto">${count}</span>
+        </a>`;
+    })
+    .join("");
+}
+
+/** 页码过多时只显示首尾和当前页附近几页，中间用省略号代替。 */
+function pageWindow(current, total) {
+  const pages = new Set([1, total, current - 1, current, current + 1]);
+  if (current <= 3) [2, 3, 4].forEach((p) => pages.add(p));
+  if (current >= total - 2) [total - 3, total - 2, total - 1].forEach((p) => pages.add(p));
+  const sorted = [...pages].filter((p) => p >= 1 && p <= total).sort((a, b) => a - b);
+  const out = [];
+  sorted.forEach((p, i) => {
+    if (i > 0 && p - sorted[i - 1] > 1) out.push("…");
+    out.push(p);
+  });
+  return out;
 }
 
 function renderPagination(totalPages) {
-  paginationEl.innerHTML = "";
-  if (totalPages <= 1) return;
-  for (let p = 1; p <= totalPages; p++) {
-    const btn = document.createElement("button");
-    btn.className = "page-btn" + (p === currentPage ? " active" : "");
-    btn.textContent = String(p);
-    btn.addEventListener("click", () => {
-      currentPage = p;
-      listNeedsEntranceAnimation = true;
-      renderJobs();
-      scrollToListStart();
-    });
-    paginationEl.appendChild(btn);
+  if (totalPages <= 1) {
+    paginationEl.innerHTML = "";
+    return;
   }
+  const item = (label, page, { disabled = false, active = false } = {}) =>
+    `<li class="page-item${disabled ? " disabled" : ""}${active ? " active" : ""}">
+       <a class="page-link" href="#" ${page ? `data-page="${page}"` : ""}>${label}</a>
+     </li>`;
+  paginationEl.innerHTML = [
+    item('<i class="ti ti-chevron-left"></i>', currentPage - 1, { disabled: currentPage === 1 }),
+    ...pageWindow(currentPage, totalPages).map((p) =>
+      p === "…" ? item("…", null, { disabled: true }) : item(p, p, { active: p === currentPage })
+    ),
+    item('<i class="ti ti-chevron-right"></i>', currentPage + 1, { disabled: currentPage === totalPages }),
+  ].join("");
+}
+
+function setFooter(text, totalPages = 1) {
+  if (text === null) {
+    listFooterEl.classList.add("hidden");
+    paginationEl.innerHTML = "";
+    return;
+  }
+  listFooterEl.classList.remove("hidden");
+  listSummaryEl.textContent = text;
+  renderPagination(totalPages);
+}
+
+function emptyState(icon, title, subtitle = "") {
+  return `
+    <div class="empty">
+      <div class="empty-icon"><i class="ti ${icon}"></i></div>
+      <p class="empty-title">${title}</p>
+      ${subtitle ? `<p class="empty-subtitle text-secondary">${subtitle}</p>` : ""}
+    </div>`;
 }
 
 function renderJobs() {
+  renderUpcoming();
+
   if (jobsLoading) {
     renderLoadingSkeleton();
     return;
   }
   if (jobsLoadError) {
-    jobListEl.innerHTML = `<div class="empty-state">岗位加载失败，请刷新重试。<br><small>${escapeHtml(jobsLoadError)}</small></div>`;
+    jobListEl.innerHTML = emptyState("ti-cloud-off", "岗位加载失败，请刷新重试", escapeHtml(jobsLoadError));
     chipRowEl.innerHTML = "";
-    paginationEl.innerHTML = "";
+    setFooter(null);
     return;
   }
 
@@ -573,41 +703,36 @@ function renderJobs() {
   if (finalFiltered.length === 0) {
     const hasActiveFilters = Boolean(sourceVal || dateVal || q || bucketKey !== "all");
     if (currentTab === "progress" && !hasActiveFilters) {
-      jobListEl.innerHTML = `
-        <div class="empty-state empty-state-card">
-          <span class="empty-state-icon">✈</span>
-          <strong>还没有投递中的岗位</strong>
-          <p>在「待处理」里点 ✓ 标记已投递后，岗位会出现在这里，可以逐步记录简历通过、笔试、面试到 Offer 的进展。</p>
-        </div>`;
-      paginationEl.innerHTML = "";
-      return;
-    }
-    if (currentTab === "pending" && !hasActiveFilters && allJobs.length === 0) {
-      jobListEl.innerHTML = `
-        <div class="empty-state empty-state-card">
-          <span class="empty-state-icon">✓</span>
-          <strong>岗位信息已加载完成</strong>
-          <p>暂未发现符合2027届报名条件的岗位，系统会在每日更新后自动补充。</p>
-        </div>`;
+      jobListEl.innerHTML = emptyState(
+        "ti-send",
+        "还没有投递中的岗位",
+        "在「待处理」里点「投递」后，岗位会出现在这里，可以逐步记录简历通过、笔试、面试到 Offer 的进展。"
+      );
+    } else if (currentTab === "pending" && !hasActiveFilters && allJobs.length === 0) {
+      jobListEl.innerHTML = emptyState(
+        "ti-circle-check",
+        "岗位信息已加载完成",
+        "暂未发现符合 2027 届报名条件的岗位，系统会在每日更新后自动补充。"
+      );
     } else {
-      const emptyText =
+      const text =
         currentTab === "pending"
-          ? "当前筛选条件下没有待处理岗位。"
+          ? "当前筛选条件下没有待处理岗位"
           : currentTab === "progress"
-            ? "当前筛选条件下没有投递中的岗位。"
-            : "还没有符合条件的已处理岗位。";
-      jobListEl.innerHTML = `<div class="empty-state">${emptyText}</div>`;
+            ? "当前筛选条件下没有投递中的岗位"
+            : "还没有符合条件的已处理岗位";
+      jobListEl.innerHTML = emptyState("ti-mood-empty", text);
     }
-    paginationEl.innerHTML = "";
+    setFooter(null);
     return;
   }
 
   if (currentTab === "resolved" && bucketKey === "skipped") {
-    renderReasonBoxes(finalFiltered, SKIP_REASON_CATEGORIES);
+    renderReasonGroups(finalFiltered, SKIP_REASON_CATEGORIES);
     return;
   }
   if (currentTab === "resolved" && bucketKey === "undecided") {
-    renderReasonBoxes(finalFiltered, UNDECIDED_REASON_CATEGORIES);
+    renderReasonGroups(finalFiltered, UNDECIDED_REASON_CATEGORIES);
     return;
   }
 
@@ -617,13 +742,12 @@ function renderJobs() {
   const pageItems = finalFiltered.slice(start, start + PAGE_SIZE);
   currentPageItems = pageItems;
 
-  jobListEl.innerHTML = "";
-  if (currentTab === "progress") renderUpcomingBanner(finalFiltered);
-  for (const job of pageItems) {
-    if (currentTab === "pending") jobListEl.appendChild(renderCard(job));
-    else if (currentTab === "progress") jobListEl.appendChild(renderProgressCard(job));
-    else jobListEl.appendChild(renderResolvedCard(job));
-  }
+  jobListEl.innerHTML =
+    currentTab === "pending"
+      ? pendingTable(pageItems)
+      : currentTab === "progress"
+        ? progressTable(pageItems)
+        : resolvedTable(pageItems);
 
   if (listNeedsEntranceAnimation) {
     jobListEl.classList.remove("list-enter");
@@ -632,135 +756,278 @@ function renderJobs() {
     listNeedsEntranceAnimation = false;
   }
 
-  renderPagination(totalPages);
+  setFooter(`第 ${start + 1}–${start + pageItems.length} 条，共 ${finalFiltered.length} 条`, totalPages);
 }
 
 function scrollToListStart() {
-  const top = window.scrollY + jobListEl.getBoundingClientRect().top - stickyToolbarEl.offsetHeight - 8;
-  window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  const top = window.scrollY + listCardEl.getBoundingClientRect().top - 12;
+  if (top < window.scrollY) window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
 }
 
 function renderLoadingSkeleton() {
   updatedHintEl.textContent = "正在连接招聘信息库…";
   chipRowEl.innerHTML = "";
-  paginationEl.innerHTML = "";
+  setFooter(null);
   jobListEl.innerHTML = `
-    <div class="loading-heading">
-      <span class="loading-flight" aria-hidden="true">${paperPlaneSvg()}</span>
-      正在加载最新岗位信息…
-    </div>
-    ${[0, 1, 2].map((index) => `
-      <div class="skeleton-card" aria-hidden="true">
-        <i class="skeleton-line title${index === 1 ? " short" : ""}"></i>
-        <i class="skeleton-line medium${index === 2 ? " short" : ""}"></i>
-        <i class="skeleton-line long"></i>
-        <i class="skeleton-line footer"></i>
-      </div>`).join("")}
-  `;
+    <div class="card-body placeholder-glow">
+      ${[0, 1, 2, 3, 4].map((i) => `
+        <div class="d-flex align-items-center mb-4">
+          <span class="avatar placeholder me-3"></span>
+          <div class="flex-fill">
+            <div class="placeholder col-${[5, 4, 6, 3, 5][i]} mb-2"></div>
+            <div class="placeholder col-${[8, 7, 9, 6, 8][i]}"></div>
+          </div>
+        </div>`).join("")}
+    </div>`;
 }
 
-function renderReasonBoxes(jobs, categories) {
-  jobListEl.innerHTML = "";
-  paginationEl.innerHTML = "";
+/* ---------- 各页签的表格 ---------- */
 
-  const boxes = [...categories, "其他原因"];
-  for (const reason of boxes) {
-    const group = jobs.filter((j) =>
-      reason === "其他原因" ? !categories.includes(j.status_note) : j.status_note === reason
-    );
-
-    const isOpen = expandedReasons.has(reason);
-
-    const box = document.createElement("div");
-    box.className = "reason-box" + (isOpen ? " open" : "");
-
-    const title = document.createElement("button");
-    title.type = "button";
-    title.className = "reason-box-title";
-    title.innerHTML = `<span class="chevron">${isOpen ? "▾" : "▸"}</span><span>${escapeHtml(reason)}</span><span class="count">${group.length}</span>`;
-    title.addEventListener("click", () => {
-      if (expandedReasons.has(reason)) expandedReasons.delete(reason);
-      else expandedReasons.add(reason);
-      renderJobs();
-    });
-    box.appendChild(title);
-
-    if (isOpen) {
-      const body = document.createElement("div");
-      body.className = "reason-box-body";
-      if (group.length === 0) {
-        body.innerHTML = '<div class="empty-state small">暂无</div>';
-      } else {
-        for (const job of group) body.appendChild(renderResolvedCard(job));
-      }
-      box.appendChild(body);
-    }
-    jobListEl.appendChild(box);
-  }
+function companyCell(job, extraBadges = "", subline = "") {
+  return `
+    <td class="job-cell">
+      <div class="d-flex py-1 align-items-start">
+        <span class="avatar avatar-sm me-3 mt-1 ${SOURCE_AVATAR[job.source] || "bg-secondary-lt"}" title="${escapeAttr(SOURCE_LABELS[job.source] || job.source)}">${escapeHtml(job.company.slice(0, 2))}</span>
+        <div class="flex-fill">
+          <div class="font-weight-medium">${escapeHtml(job.company)}${extraBadges}</div>
+          <div class="text-secondary">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</div>
+          ${subline}
+        </div>
+      </div>
+    </td>`;
 }
 
-function renderCard(job) {
-  const card = document.createElement("div");
+function deadlineCell(job) {
+  if (!job.deadline) return '<span class="text-secondary">未注明</span>';
+  const days = daysFromToday(toLocalDateStr(job.deadline));
+  const date = shortDate(job.deadline);
+  if (days < 0) return `<span class="badge bg-secondary-lt">已截止</span><div class="text-secondary small mt-1">${date}</div>`;
+  if (days <= 7) return `<span class="badge bg-red-lt">${days === 0 ? "今天截止" : `还剩 ${days} 天`}</span><div class="text-secondary small mt-1">${date}</div>`;
+  if (days <= 14) return `<span class="badge bg-orange-lt">还剩 ${days} 天</span><div class="text-secondary small mt-1">${date}</div>`;
+  return `<div>${date}</div><div class="text-secondary small">${days} 天后</div>`;
+}
+
+function linkButton(job) {
+  return `<a class="btn btn-sm btn-icon btn-ghost-secondary" href="${escapeAttr(job.url)}" target="_blank" rel="noopener" title="查看原始公告"><i class="ti ti-external-link"></i></a>`;
+}
+
+function lockAttr() {
+  return session ? "" : 'disabled title="登录后才能标记"';
+}
+
+function pendingTable(jobs) {
+  return `
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover">
+        <thead>
+          <tr>
+            ${batchMode ? '<th class="w-1"></th>' : ""}
+            <th>单位 / 岗位</th>
+            <th>专业要求</th>
+            <th>学历 · 薪资</th>
+            <th>截止</th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>${jobs.map(pendingRow).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+function pendingRow(job) {
   const notInterested = !!job.interest_tag;
-  card.className =
-    "job-card" + (notInterested ? " not-interested" : "") + (isExpired(job) ? " expired" : "");
-  card.dataset.jobId = job.id;
-
-  if (batchMode && selectedIds.has(job.id)) card.classList.add("selected");
-
-  card.innerHTML = `
-    <div class="job-card-top">
-      ${batchMode ? `<input type="checkbox" class="batch-check" ${selectedIds.has(job.id) ? "checked" : ""} aria-label="选择该岗位">` : ""}
-      <div class="job-card-main">
-        <div class="job-card-title-row">
-          <span class="company">${escapeHtml(job.company)}</span>
-          <span class="salary-tag" title="${escapeHtml(job.salary || "薪资未注明")}">${escapeHtml(job.salary || "薪资未注明")}</span>
-          ${notInterested ? '<span class="badge not-interested">不感兴趣</span>' : ""}
-          ${isToday(job.created_at) ? '<span class="badge new">今日新增</span>' : ""}
+  const selected = batchMode && selectedIds.has(job.id);
+  const badges =
+    (isToday(job.created_at) ? '<span class="badge bg-green-lt ms-2">今日新增</span>' : "") +
+    (notInterested ? '<span class="badge bg-secondary-lt ms-2">不感兴趣</span>' : "");
+  const clue = job.eligible_reason
+    ? `<div class="text-secondary small mt-1 clue"><i class="ti ti-sparkles text-yellow"></i> ${escapeHtml(job.eligible_reason)}</div>`
+    : "";
+  const salary = job.salary || "薪资未注明";
+  return `
+    <tr class="job-row${notInterested || isExpired(job) ? " muted" : ""}${selected ? " selected" : ""}" data-job-id="${job.id}">
+      ${batchMode ? `<td><input class="form-check-input m-0 align-middle batch-check" type="checkbox" ${selected ? "checked" : ""} aria-label="选择该岗位"></td>` : ""}
+      ${companyCell(job, badges, clue)}
+      <td class="text-secondary small major-cell">${escapeHtml(job.major_requirement || "详见职位描述")}</td>
+      <td>
+        <div>${escapeHtml(job.education || "—")}</div>
+        <div class="text-secondary small salary" title="${escapeAttr(salary)}">${escapeHtml(salary)}</div>
+      </td>
+      <td>${deadlineCell(job)}</td>
+      <td class="text-end">
+        <div class="btn-list flex-nowrap justify-content-end">
+          ${linkButton(job)}
+          ${batchMode ? "" : `
+            <button type="button" class="btn btn-sm btn-outline-success act-apply" data-action="apply" ${lockAttr()}><i class="ti ti-send"></i>投递</button>
+            <button type="button" class="btn btn-sm btn-icon btn-ghost-warning" data-action="undecided" title="标记待定" ${lockAttr()}><i class="ti ti-help-circle"></i></button>
+            <button type="button" class="btn btn-sm btn-icon btn-ghost-danger" data-action="skip" title="标记不投递" ${lockAttr()}><i class="ti ti-x"></i></button>`}
         </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
-        <div class="job-meta-row">
-          ${job.education ? `<span class="meta-chip">学历 · ${escapeHtml(job.education)}</span>` : ""}
-          <span class="meta-chip meta-major">专业 · ${escapeHtml(job.major_requirement || "详见职位描述")}</span>
-        </div>
-        ${job.eligible_reason ? `<p class="reason match-reason">匹配 · ${escapeHtml(job.eligible_reason)}</p>` : ""}
-      </div>
-      <div class="job-actions">
-        <button class="icon-btn check" title="标记已投递" ${session ? "" : "disabled"}>✓</button>
-        <button class="icon-btn undecided" title="标记待定" ${session ? "" : "disabled"}>?</button>
-        <button class="icon-btn cross" title="标记不投递" ${session ? "" : "disabled"}>✕</button>
-      </div>
-    </div>
-    <div class="job-card-bottom">
-      <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
-      <span class="status-hint deadline ${deadlineTone(job.deadline)}">${job.deadline ? "截止 " + fmtDate(job.deadline) : "未注明截止日期"}</span>
-    </div>
-  `;
-
-  if (batchMode) {
-    // 整张卡都可点选，快速扫标签时不用瞄准那个小方框；链接除外。
-    card.addEventListener("click", (e) => {
-      if (e.target.closest("a")) return;
-      toggleSelection(job.id, !selectedIds.has(job.id), card);
-    });
-  } else {
-    card.querySelector(".icon-btn.check").addEventListener("click", () => setStatus(job, "applied"));
-    card.querySelector(".icon-btn.cross").addEventListener("click", () => openSkipDialog(job));
-    card.querySelector(".icon-btn.undecided").addEventListener("click", () => openUndecidedDialog(job));
-  }
-
-  return card;
+      </td>
+    </tr>`;
 }
 
-function toggleSelection(jobId, selected, card) {
-  if (selected) selectedIds.add(jobId);
-  else selectedIds.delete(jobId);
-  if (card) {
-    card.classList.toggle("selected", selected);
-    const box = card.querySelector(".batch-check");
-    if (box) box.checked = selected;
+function progressTable(jobs) {
+  return `
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover">
+        <thead>
+          <tr>
+            <th>单位 / 岗位</th>
+            <th>当前阶段</th>
+            <th>下一个日程</th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>${jobs.map(progressRow).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+function progressRow(job) {
+  const stage = jobStage(job);
+  const closed = stage === "closed";
+  const events = sortedEvents(job);
+  const upcoming = nextSchedule(job);
+  const stalled = daysInCurrentStage(job);
+  const isOpen = expandedTimelines.has(job.id);
+
+  const stalledText =
+    stalled === null ? "" : stalled === 0 ? "今天更新" : `已停留 ${stalled} 天`;
+  // 两周没动静就该去催了，标红提醒
+  const stalledCls = stalled >= 14 && !closed ? "text-red" : "text-secondary";
+  const next = upcoming
+    ? `<div>${monthDay(upcoming.happened_on)} · ${STAGE_LABELS[upcoming.stage]}${upcoming.note ? `（${escapeHtml(upcoming.note)}）` : ""}</div>
+       <div class="text-primary small">${relativeDay(daysFromToday(upcoming.happened_on))}</div>`
+    : '<span class="text-secondary">—</span>';
+
+  return `
+    <tr class="job-row${closed ? " muted" : ""}" data-job-id="${job.id}">
+      ${companyCell(job)}
+      <td>
+        <span class="badge ${STAGE_BADGE[stage] || ""}">${closed ? "已结束" : STAGE_LABELS[stage] || stage}</span>
+        ${stalledText ? `<div class="small mt-1 ${stalledCls}">${stalledText}</div>` : ""}
+      </td>
+      <td>${next}</td>
+      <td class="text-end">
+        <div class="btn-list flex-nowrap justify-content-end">
+          ${linkButton(job)}
+          <button type="button" class="btn btn-sm btn-ghost-secondary" data-action="timeline"><i class="ti ti-chevron-${isOpen ? "down" : "right"}"></i>时间线 ${events.length}</button>
+          <button type="button" class="btn btn-sm btn-outline-primary" data-action="add-event" ${lockAttr()}><i class="ti ti-plus"></i>记录进展</button>
+          <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary" data-action="revert" title="撤销投递，移回待处理" ${lockAttr()}><i class="ti ti-arrow-back-up"></i></button>
+        </div>
+      </td>
+    </tr>
+    ${isOpen ? `<tr class="timeline-row" data-job-id="${job.id}"><td colspan="4">${timelineHtml(events)}</td></tr>` : ""}`;
+}
+
+function timelineHtml(events) {
+  if (!events.length) return '<span class="text-secondary small">还没有记录</span>';
+  return `
+    <ul class="list-unstyled mb-0 timeline-list">
+      ${[...events].reverse().map((e) => {
+        const future = daysFromToday(e.happened_on) > 0;
+        return `
+          <li class="d-flex align-items-center gap-2">
+            <span class="status-dot ${future ? "status-dot-animated status-blue" : "status-secondary"}"></span>
+            <span class="text-secondary timeline-date">${e.happened_on.slice(5)}</span>
+            <span class="badge ${STAGE_BADGE[e.stage] || ""}">${STAGE_LABELS[e.stage] || e.stage}</span>
+            ${e.note ? `<span class="text-secondary">${escapeHtml(e.note)}</span>` : ""}
+            ${future ? '<span class="text-primary small">未到</span>' : ""}
+            <button type="button" class="btn btn-sm btn-icon btn-ghost-danger ms-auto" data-action="del-event" data-event-id="${e.id}" title="删除这条记录" ${lockAttr()}><i class="ti ti-trash"></i></button>
+          </li>`;
+      }).join("")}
+    </ul>`;
+}
+
+function resolvedTable(jobs, groupsHtml) {
+  return `
+    <div class="table-responsive">
+      <table class="table table-vcenter card-table table-hover">
+        <thead>
+          <tr>
+            <th>单位 / 岗位</th>
+            <th>处理结果</th>
+            <th>处理时间</th>
+            <th class="w-1"></th>
+          </tr>
+        </thead>
+        <tbody>${groupsHtml ?? jobs.map(resolvedRow).join("")}</tbody>
+      </table>
+    </div>`;
+}
+
+function resolvedRow(job) {
+  return `
+    <tr class="job-row" data-job-id="${job.id}">
+      ${companyCell(job)}
+      <td>
+        <span class="badge ${STATUS_BADGE[job.status] || ""}">${STATUS_LABELS[job.status] || job.status}</span>
+        ${job.status_note ? `<div class="text-secondary small mt-1">${escapeHtml(job.status_note)}</div>` : ""}
+      </td>
+      <td class="text-secondary small">${fmtDateTime(job.updated_at)}</td>
+      <td class="text-end">
+        <div class="btn-list flex-nowrap justify-content-end">
+          ${linkButton(job)}
+          <button type="button" class="btn btn-sm btn-icon btn-ghost-secondary" data-action="revert" title="撤销，移回待处理" ${lockAttr()}><i class="ti ti-arrow-back-up"></i></button>
+        </div>
+      </td>
+    </tr>`;
+}
+
+/** 不投递 / 待定按原因分组，每组可折叠。 */
+function renderReasonGroups(jobs, categories) {
+  const groups = [...categories, "其他原因"].map((reason) => ({
+    reason,
+    items: jobs.filter((j) =>
+      reason === "其他原因" ? !categories.includes(j.status_note) : j.status_note === reason
+    ),
+  }));
+
+  const body = groups
+    .map(({ reason, items }) => {
+      const open = expandedReasons.has(reason);
+      return `
+        <tr class="group-row" data-action="toggle-reason" data-reason="${encodeURIComponent(reason)}">
+          <td colspan="4">
+            <i class="ti ti-chevron-${open ? "down" : "right"} text-secondary"></i>
+            <strong class="ms-1">${escapeHtml(reason)}</strong>
+            <span class="badge ms-2">${items.length}</span>
+          </td>
+        </tr>
+        ${open ? (items.length ? items.map(resolvedRow).join("") : '<tr><td colspan="4" class="text-secondary small ps-5">暂无</td></tr>') : ""}`;
+    })
+    .join("");
+
+  jobListEl.innerHTML = resolvedTable(jobs, body);
+  setFooter(`共 ${jobs.length} 条，按原因分组`);
+}
+
+function renderUpcoming() {
+  const items = [];
+  for (const job of allJobs) {
+    if (job.status !== "applied") continue;
+    for (const event of jobEvents(job)) {
+      const days = daysFromToday(event.happened_on);
+      if (days >= 0 && days <= UPCOMING_DAYS) items.push({ job, event, days });
+    }
   }
-  updateBatchBar();
+  upcomingCardEl.classList.toggle("hidden", items.length === 0);
+  if (!items.length) return;
+
+  items.sort((a, b) => a.days - b.days);
+  upcomingListEl.innerHTML = items
+    .slice(0, 6)
+    .map(({ job, event, days }) => `
+      <div class="list-group-item">
+        <div class="row align-items-center g-2">
+          <div class="col-auto"><span class="avatar avatar-sm ${STAGE_BADGE[event.stage] || ""}"><i class="ti ${STAGE_ICON[event.stage] || "ti-calendar"}"></i></span></div>
+          <div class="col text-truncate">
+            <div class="text-body text-truncate">${escapeHtml(job.company)} · ${STAGE_LABELS[event.stage]}${event.note ? `（${escapeHtml(event.note)}）` : ""}</div>
+            <div class="text-secondary small">${monthDay(event.happened_on)} · ${relativeDay(days)}</div>
+          </div>
+        </div>
+      </div>`)
+    .join("");
 }
 
 /**
@@ -784,150 +1051,84 @@ function sortByUrgency(jobs) {
   });
 }
 
-function renderUpcomingBanner(jobs) {
-  const upcoming = [];
-  for (const job of jobs) {
-    for (const event of sortedEvents(job)) {
-      const days = daysFromToday(event.happened_on);
-      if (days > 0 && days <= UPCOMING_DAYS) upcoming.push({ job, event, days });
-    }
-  }
-  if (!upcoming.length) return;
+/* ---------- 列表里的点击统一在这里分发 ---------- */
 
-  upcoming.sort((a, b) => a.days - b.days);
-  const banner = document.createElement("div");
-  banner.className = "upcoming-banner";
-  banner.innerHTML = `
-    <div class="upcoming-title">即将到来（${UPCOMING_DAYS} 天内）</div>
-    <ul>
-      ${upcoming
-        .map(
-          ({ job, event, days }) => `
-        <li>
-          <span class="upcoming-when">${days === 1 ? "明天" : `${days} 天后`}</span>
-          <span class="upcoming-date">${event.happened_on.slice(5)}</span>
-          <span class="upcoming-stage">${STAGE_LABELS[event.stage]}</span>
-          <span class="upcoming-company">${escapeHtml(job.company)}</span>
-          ${event.note ? `<span class="upcoming-note">${escapeHtml(event.note)}</span>` : ""}
-        </li>`
-        )
-        .join("")}
-    </ul>`;
-  jobListEl.appendChild(banner);
+function jobById(id) {
+  return allJobs.find((j) => j.id === id);
 }
 
-function renderProgressCard(job) {
-  const stage = jobStage(job);
-  const closed = stage === "closed";
-  const card = document.createElement("div");
-  card.className = "job-card progress-card" + (closed ? " closed" : "");
-  card.dataset.jobId = job.id;
+jobListEl.addEventListener("click", (e) => {
+  const actionEl = e.target.closest("[data-action]");
+  const row = e.target.closest("[data-job-id]");
+  const job = row ? jobById(row.dataset.jobId) : null;
 
-  const events = sortedEvents(job);
-  const upcoming = nextSchedule(job);
-  const stalled = daysInCurrentStage(job);
-  const isOpen = expandedTimelines.has(job.id);
-
-  const stageLabel = closed ? "已结束" : STAGE_LABELS[stage] || stage;
-  const stalledText =
-    stalled === null ? "" : stalled === 0 ? "今天更新" : `已停留 ${stalled} 天`;
-  const upcomingDays = upcoming ? daysFromToday(upcoming.happened_on) : null;
-
-  card.innerHTML = `
-    <div class="job-card-top">
-      <div class="job-card-main">
-        <div class="job-card-title-row">
-          <span class="company">${escapeHtml(job.company)}</span>
-          <span class="badge stage-${closed ? "closed" : stage}">${stageLabel}</span>
-          ${stalledText ? `<span class="stalled-hint${stalled >= 14 && !closed ? " warn" : ""}">${stalledText}</span>` : ""}
-        </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
-        ${
-          upcoming
-            ? `<p class="next-schedule"><span class="cal">📅</span>${upcoming.happened_on.slice(5)} ${STAGE_LABELS[upcoming.stage]}${upcoming.note ? " · " + escapeHtml(upcoming.note) : ""} · ${upcomingDays === 1 ? "明天" : `还有 ${upcomingDays} 天`}</p>`
-            : ""
+  if (actionEl) {
+    switch (actionEl.dataset.action) {
+      case "apply": if (job) setStatus(job, "applied"); break;
+      case "undecided": if (job) openUndecidedDialog(job); break;
+      case "skip": if (job) openSkipDialog(job); break;
+      case "revert": if (job) setStatus(job, "pending", null); break;
+      case "add-event": if (job) openProgressDialog(job); break;
+      case "del-event": if (job) deleteEvent(job, actionEl.dataset.eventId); break;
+      case "timeline":
+        if (job) {
+          if (expandedTimelines.has(job.id)) expandedTimelines.delete(job.id);
+          else expandedTimelines.add(job.id);
+          renderJobs();
         }
-      </div>
-      <div class="job-actions">
-        <button class="icon-btn add-event" title="记录进展" ${session ? "" : "disabled"}>＋</button>
-        <button class="icon-btn revert" title="撤销投递，移回待处理" ${session ? "" : "disabled"}>↺</button>
-      </div>
-    </div>
-    <div class="job-card-bottom">
-      <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
-      <button type="button" class="timeline-toggle">${isOpen ? "▾" : "▸"} 时间线（${events.length}）</button>
-    </div>
-    ${isOpen ? renderTimeline(events) : ""}
-  `;
-
-  card.querySelector(".icon-btn.add-event").addEventListener("click", () => openProgressDialog(job));
-  card.querySelector(".icon-btn.revert").addEventListener("click", () => setStatus(job, "pending", null));
-  card.querySelector(".timeline-toggle").addEventListener("click", () => {
-    if (expandedTimelines.has(job.id)) expandedTimelines.delete(job.id);
-    else expandedTimelines.add(job.id);
-    renderJobs();
-  });
-  for (const btn of card.querySelectorAll(".timeline-delete")) {
-    btn.addEventListener("click", () => deleteEvent(job, btn.dataset.eventId));
+        break;
+      case "toggle-reason": {
+        const reason = decodeURIComponent(actionEl.dataset.reason);
+        if (expandedReasons.has(reason)) expandedReasons.delete(reason);
+        else expandedReasons.add(reason);
+        renderJobs();
+        break;
+      }
+    }
+    return;
   }
 
-  return card;
+  // 批量模式下整行都可点选，快速扫一眼就能勾；链接除外。
+  if (batchMode && currentTab === "pending" && job && !e.target.closest("a")) {
+    const box = e.target.closest(".batch-check");
+    toggleSelection(job.id, box ? box.checked : !selectedIds.has(job.id), row);
+  }
+});
+
+chipRowEl.addEventListener("click", (e) => {
+  const item = e.target.closest("[data-bucket]");
+  if (!item) return;
+  e.preventDefault();
+  setActiveBucketKey(item.dataset.bucket);
+  currentPage = 1;
+  expandedReasons.clear();
+  listNeedsEntranceAnimation = true;
+  renderJobs();
+  scrollToListStart();
+});
+
+paginationEl.addEventListener("click", (e) => {
+  const link = e.target.closest("[data-page]");
+  e.preventDefault();
+  if (!link || link.closest(".disabled")) return;
+  currentPage = Number(link.dataset.page);
+  listNeedsEntranceAnimation = true;
+  renderJobs();
+  scrollToListStart();
+});
+
+function toggleSelection(jobId, selected, row) {
+  if (selected) selectedIds.add(jobId);
+  else selectedIds.delete(jobId);
+  if (row) {
+    row.classList.toggle("selected", selected);
+    const box = row.querySelector(".batch-check");
+    if (box) box.checked = selected;
+  }
+  updateBatchBar();
 }
 
-function renderTimeline(events) {
-  if (!events.length) return '<div class="timeline"><p class="timeline-empty">还没有记录</p></div>';
-  return `
-    <div class="timeline">
-      ${[...events]
-        .reverse()
-        .map((e) => {
-          const days = daysFromToday(e.happened_on);
-          return `
-        <div class="timeline-row${days > 0 ? " future" : ""}">
-          <span class="timeline-dot"></span>
-          <span class="timeline-date">${e.happened_on.slice(5)}</span>
-          <span class="timeline-stage">${STAGE_LABELS[e.stage] || e.stage}</span>
-          ${e.note ? `<span class="timeline-note">${escapeHtml(e.note)}</span>` : ""}
-          <button type="button" class="timeline-delete" data-event-id="${e.id}" title="删除这条记录">✕</button>
-        </div>`;
-        })
-        .join("")}
-    </div>`;
-}
-
-function renderResolvedCard(job) {
-  const card = document.createElement("div");
-  card.className = "job-card resolved";
-
-  card.innerHTML = `
-    <div class="job-card-top">
-      <div class="job-card-main">
-        <div class="job-card-title-row">
-          <span class="company">${escapeHtml(job.company)}</span>
-          <span class="badge status-${job.status}">${STATUS_LABELS[job.status] || job.status}</span>
-          <span class="salary-tag" title="${escapeHtml(job.salary || "薪资未注明")}">${escapeHtml(job.salary || "薪资未注明")}</span>
-        </div>
-        <p class="job-title">${escapeHtml(job.title)}${job.location ? " · " + escapeHtml(job.location) : ""}</p>
-        <div class="job-meta-row">
-          ${job.education ? `<span class="meta-chip">学历 · ${escapeHtml(job.education)}</span>` : ""}
-          <span class="meta-chip meta-major">专业 · ${escapeHtml(job.major_requirement || "详见职位描述")}</span>
-        </div>
-        ${job.status_note ? `<p class="reason">原因：${escapeHtml(job.status_note)}</p>` : ""}
-      </div>
-      <div class="job-actions">
-        <button class="icon-btn revert" title="撤销，移回待处理" ${session ? "" : "disabled"}>↺</button>
-      </div>
-    </div>
-    <div class="job-card-bottom">
-      <a href="${job.url}" target="_blank" rel="noopener">查看原始公告 ↗</a>
-      <span class="status-hint">处理于 ${fmtDateTime(job.updated_at)}</span>
-    </div>
-  `;
-
-  card.querySelector(".icon-btn.revert").addEventListener("click", () => setStatus(job, "pending", null));
-
-  return card;
-}
+/* ---------- 弹窗 ---------- */
 
 function openUndecidedDialog(job) {
   undecidedTargetJob = job;
@@ -967,7 +1168,7 @@ undecidedForm.addEventListener("submit", (e) => {
   }
 });
 
-document.getElementById("undecided-cancel").addEventListener("click", () => {
+$("undecided-cancel").addEventListener("click", () => {
   undecidedTargetJob = null;
   batchReasonStatus = null;
   undecidedDialog.close();
@@ -1014,7 +1215,7 @@ progressForm.addEventListener("submit", async (e) => {
   });
 });
 
-document.getElementById("progress-cancel").addEventListener("click", () => {
+$("progress-cancel").addEventListener("click", () => {
   progressTargetJob = null;
   progressDialog.close();
 });
@@ -1037,6 +1238,7 @@ async function addEvent(job, payload, { expand = true } = {}) {
   // 手动记录后展开时间线让你确认写对了；自动补的起点事件不打扰。
   if (expand) expandedTimelines.add(job.id);
   writeEventsCache();
+  updateStats();
   renderJobs();
 }
 
@@ -1049,6 +1251,7 @@ async function deleteEvent(job, eventId) {
   }
   eventsByJob.set(job.id, jobEvents(job).filter((e) => e.id !== eventId));
   writeEventsCache();
+  updateStats();
   renderJobs();
 }
 
@@ -1090,11 +1293,13 @@ skipForm.addEventListener("submit", (e) => {
   }
 });
 
-document.getElementById("skip-cancel").addEventListener("click", () => {
+$("skip-cancel").addEventListener("click", () => {
   skipTargetJob = null;
   batchReasonStatus = null;
   skipDialog.close();
 });
+
+/* ---------- 状态更新 ---------- */
 
 async function setStatus(job, newStatus, note) {
   if (!session) return;
@@ -1108,17 +1313,15 @@ async function setStatus(job, newStatus, note) {
     if (!ok) return;
   }
 
-  const card = [...jobListEl.querySelectorAll(".job-card")].find(
-    (element) => element.dataset.jobId === job.id
-  );
-  const actionButtons = card ? [...card.querySelectorAll("button")] : [];
+  const row = jobListEl.querySelector(`.job-row[data-job-id="${job.id}"]`);
+  const actionButtons = row ? [...row.querySelectorAll("button")] : [];
   actionButtons.forEach((button) => { button.disabled = true; });
 
   const previousStatus = job.status;
   const previousNote = job.status_note;
   const payload = { status: newStatus, status_note: note ?? null };
   const updateRequest = Promise.resolve(
-    supabase.from("jobs").update(payload).eq("id", job.id)
+    supabase.from("jobs").update(payload).eq("id", job.id).select("id")
   );
 
   // 先立即更新界面，数据库保存放到后台进行，避免网络延迟阻塞动画。
@@ -1127,17 +1330,18 @@ async function setStatus(job, newStatus, note) {
   writeJobsCache();
   updateStats();
 
-  if (card && currentTab === "pending" && newStatus !== "pending") {
-    const previousPositions = captureCardPositions(card.dataset.jobId);
-    if (newStatus === "applied") await animateAppliedCardOut(card);
-    else await animateCardOut(card);
+  if (row && currentTab === "pending" && newStatus !== "pending") {
+    const previousPositions = captureRowPositions(job.id);
+    if (newStatus === "applied") await animateAppliedRowOut(row);
+    else await animateRowOut(row);
     renderJobs();
-    animateCardsIntoPlace(previousPositions);
+    animateRowsIntoPlace(previousPositions);
   } else {
     renderJobs();
   }
 
-  const { error } = await updateRequest;
+  const { data: updated, error: updateError } = await updateRequest;
+  const error = updateError || (updated?.length ? null : NO_ROWS_UPDATED);
   if (!error) {
     await syncStageEvents(job, newStatus, previousStatus);
     return;
@@ -1158,6 +1362,7 @@ async function syncStageEvents(job, newStatus, previousStatus) {
     await addEvent(job, { stage: "applied", happened_on: todayStr(), note: null }, { expand: false });
   } else if (newStatus === "pending") {
     await deleteEventsFor(job);
+    updateStats();
     renderJobs();
   }
 }
@@ -1169,7 +1374,7 @@ function setBatchMode(on) {
   selectedIds.clear();
   batchBarEl.classList.toggle("hidden", !on);
   batchToggleBtn.classList.toggle("active", on);
-  batchToggleBtn.textContent = on ? "退出批量" : "批量";
+  batchToggleBtn.innerHTML = on ? '<i class="ti ti-x"></i>退出批量' : '<i class="ti ti-checkbox"></i>批量标记';
   document.body.classList.toggle("batch-active", on);
   updateBatchBar();
   renderJobs();
@@ -1191,11 +1396,13 @@ function selectJobs(jobs) {
 /** 按 100 一批提交，避免 id 列表拼进 URL 后超长。 */
 async function writeStatusBatch(ids, payload) {
   for (let i = 0; i < ids.length; i += BATCH_WRITE_SIZE) {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("jobs")
       .update(payload)
-      .in("id", ids.slice(i, i + BATCH_WRITE_SIZE));
+      .in("id", ids.slice(i, i + BATCH_WRITE_SIZE))
+      .select("id");
     if (error) return error;
+    if (!data?.length) return NO_ROWS_UPDATED;
   }
   return null;
 }
@@ -1228,6 +1435,7 @@ async function applyBatch(newStatus, note) {
   const nextItems = jobs.map((j) => ({ id: j.id, status: newStatus, status_note: note ?? null }));
 
   selectedIds.clear();
+  updateBatchBar();
   applyLocally(nextItems);
 
   const error = await writeStatusBatch(
@@ -1292,9 +1500,9 @@ function syncBatchAvailability() {
 }
 
 batchToggleBtn.addEventListener("click", () => setBatchMode(!batchMode));
-document.getElementById("batch-cancel").addEventListener("click", () => setBatchMode(false));
-document.getElementById("batch-select-page").addEventListener("click", () => selectJobs(currentPageItems));
-document.getElementById("batch-select-all").addEventListener("click", () => {
+$("batch-cancel").addEventListener("click", () => setBatchMode(false));
+$("batch-select-page").addEventListener("click", () => selectJobs(currentPageItems));
+$("batch-select-all").addEventListener("click", () => {
   const count = currentFiltered.length;
   if (
     count > BATCH_CONFIRM_THRESHOLD &&
@@ -1304,8 +1512,10 @@ document.getElementById("batch-select-all").addEventListener("click", () => {
   }
   selectJobs(currentFiltered);
 });
-document.getElementById("batch-skip").addEventListener("click", () => openBatchReasonDialog("skipped"));
-document.getElementById("batch-undecided").addEventListener("click", () => openBatchReasonDialog("undecided"));
+$("batch-skip").addEventListener("click", () => openBatchReasonDialog("skipped"));
+$("batch-undecided").addEventListener("click", () => openBatchReasonDialog("undecided"));
+
+/* ---------- 动效 ---------- */
 
 function paperPlaneSvg() {
   return `
@@ -1316,19 +1526,17 @@ function paperPlaneSvg() {
     </svg>`;
 }
 
-async function animateAppliedCardOut(card) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    await animateCardOut(card);
-    return;
-  }
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  const planeFlight = animateAppliedPlane(card);
+async function animateAppliedRowOut(row) {
+  if (reducedMotion()) return;
+  const planeFlight = animateAppliedPlane(row);
   await new Promise((resolve) => window.setTimeout(resolve, 150));
-  await Promise.all([planeFlight, animateCardOut(card)]);
+  await Promise.all([planeFlight, animateRowOut(row)]);
 }
 
-function animateAppliedPlane(card) {
-  const button = card.querySelector(".icon-btn.check");
+function animateAppliedPlane(row) {
+  const button = row.querySelector(".act-apply");
   if (!button) return Promise.resolve();
 
   const rect = button.getBoundingClientRect();
@@ -1362,51 +1570,37 @@ function animateAppliedPlane(card) {
   });
 }
 
-function captureCardPositions(excludedJobId) {
+function captureRowPositions(excludedJobId) {
   const positions = new Map();
-  for (const element of jobListEl.querySelectorAll(".job-card")) {
-    if (element.dataset.jobId !== excludedJobId) {
-      positions.set(element.dataset.jobId, element.getBoundingClientRect());
-    }
+  for (const el of jobListEl.querySelectorAll(".job-row")) {
+    if (el.dataset.jobId !== excludedJobId) positions.set(el.dataset.jobId, el.getBoundingClientRect());
   }
   return positions;
 }
 
-function animateCardsIntoPlace(previousPositions) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-  for (const element of jobListEl.querySelectorAll(".job-card")) {
-    const previousRect = previousPositions.get(element.dataset.jobId);
+function animateRowsIntoPlace(previousPositions) {
+  if (reducedMotion()) return;
+  for (const el of jobListEl.querySelectorAll(".job-row")) {
+    const previousRect = previousPositions.get(el.dataset.jobId);
     if (!previousRect) continue;
-
-    const currentRect = element.getBoundingClientRect();
-    const offsetY = previousRect.top - currentRect.top;
+    const offsetY = previousRect.top - el.getBoundingClientRect().top;
     if (Math.abs(offsetY) < 1) continue;
-
-    element.animate(
+    el.animate(
       [
         { transform: `translateY(${offsetY}px)` },
-        { transform: "translateY(-5px)", offset: 0.76 },
-        { transform: "translateY(2px)", offset: 0.9 },
         { transform: "translateY(0)" }
       ],
-      {
-        duration: 480,
-        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
-        fill: "both"
-      }
+      { duration: 360, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
     );
   }
 }
 
-function animateCardOut(card) {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    return Promise.resolve();
-  }
+function animateRowOut(row) {
+  if (reducedMotion()) return Promise.resolve();
   return new Promise((resolve) => {
-    card.classList.add("fade-out-right-to-left");
-    card.addEventListener("animationend", resolve, { once: true });
-    window.setTimeout(resolve, 500);
+    row.classList.add("leaving");
+    row.addEventListener("animationend", resolve, { once: true });
+    window.setTimeout(resolve, 450);
   });
 }
 
@@ -1416,17 +1610,26 @@ function escapeHtml(str) {
   return div.innerHTML;
 }
 
+/** 放进 HTML 属性值里的文本还要转义引号。 */
+function escapeAttr(str) {
+  return String(str ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+}
+
+/* ---------- 筛选与页签 ---------- */
+
 sourceFilterEl.addEventListener("change", () => {
   currentPage = 1;
   listNeedsEntranceAnimation = true;
   renderJobs();
-  scrollToListStart();
 });
 dateFilterEl.addEventListener("change", () => {
   currentPage = 1;
   listNeedsEntranceAnimation = true;
   renderJobs();
-  scrollToListStart();
 });
 searchEl.addEventListener("input", () => {
   currentPage = 1;
@@ -1436,7 +1639,8 @@ searchEl.addEventListener("input", () => {
 
 const tabButtons = [tabPendingBtn, tabProgressBtn, tabResolvedBtn];
 for (const btn of tabButtons) {
-  btn.addEventListener("click", () => {
+  btn.addEventListener("click", (e) => {
+    e.preventDefault();
     currentTab = btn.dataset.tab;
     currentPage = 1;
     expandedReasons.clear();
@@ -1446,7 +1650,6 @@ for (const btn of tabButtons) {
     }
     syncBatchAvailability();
     renderJobs();
-    scrollToListStart();
   });
 }
 
