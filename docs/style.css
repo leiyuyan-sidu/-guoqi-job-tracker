@@ -171,12 +171,27 @@ body.batch-active .undo-toast {
 
 /* ---------- 原生 dialog 套用 Tabler 的弹窗样式 ---------- */
 
+/* Tabler 的弹窗样式靠 .modal 上定义的一组变量（背景、内边距、分隔线），
+   原生 dialog 外面没有 .modal，变量取不到就会变成透明、无内边距，所以在这里补上 */
 .tb-dialog {
+  --tblr-modal-bg: var(--tblr-bg-surface);
+  --tblr-modal-color: var(--tblr-body-color);
+  --tblr-modal-padding: 1.5rem;
+  --tblr-modal-header-padding: 1.25rem 1.5rem;
+  --tblr-modal-header-border-width: 1px;
+  --tblr-modal-header-border-color: var(--tblr-border-color);
+  --tblr-modal-footer-gap: .75rem;
+  --tblr-modal-footer-border-width: 1px;
+  --tblr-modal-footer-border-color: var(--tblr-border-color);
+  --tblr-modal-border-radius: var(--tblr-border-radius-lg);
+  --tblr-modal-inner-border-radius: var(--tblr-border-radius-lg);
+  --tblr-modal-title-line-height: 1.4;
   width: min(520px, calc(100% - 24px));
   padding: 0;
   border: 0;
   border-radius: var(--tblr-border-radius-lg);
-  background: transparent;
+  background: var(--tblr-bg-surface);
+  color: var(--tblr-body-color);
   box-shadow: 0 24px 64px rgba(24, 36, 51, .24);
 }
 
@@ -186,6 +201,7 @@ body.batch-active .undo-toast {
 
 .tb-dialog .modal-content {
   border: 0;
+  background: var(--tblr-bg-surface);
 }
 
 .tb-dialog[open] {
